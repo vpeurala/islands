@@ -68,7 +68,7 @@ readConstantPoolEntry bs = let tag = getNum1 bs
                                 4  -> e1 Other (getInt $ snd tag)
                                 5  -> e2 Other2 (getInt $ snd tag) getInt
                                 6  -> e2 Other2 (getInt $ snd tag) getInt
-                                1  -> (Utf8 "foo", snd tag)
+                                1  -> e1 Utf8 (getUtf8 $ snd tag)
 
 getNum1 :: L.ByteString -> (Int, L.ByteString)
 getNum1 bs = (fromIntegral $ L.head bs, L.tail bs)
