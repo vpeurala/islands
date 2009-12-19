@@ -16,17 +16,28 @@ data Invocations = Invocations {
     , callsites :: [Method]
     } deriving (Show)
 
+type NameIdx = Int
+type ClassIdx = Int
+type NameAndTypeIdx = Int
+type DescriptorIdx = Int
+data CPEntry = Class NameIdx
+             | Fieldref ClassIdx NameAndTypeIdx
+             | Methodref ClassIdx NameAndTypeIdx 
+             | InterfaceMethodref ClassIdx NameAndTypeIdx
+             | NameAndType NameIdx DescriptorIdx
+
 -- http://www.murrayc.com/learning/java/java_classfileformat.shtml
 parse :: L.ByteString -> [Invocations]
 parse bs = []
 
-foo bs = constantPoolCount $ skipHeader bs
-
 skipHeader :: L.ByteString -> L.ByteString
 skipHeader = L8.drop 8
 
-constantPoolCount :: L.ByteString -> (Int, L.ByteString)
-constantPoolCount bs = getNum2 bs
+readConstantPoolCount :: L.ByteString -> (Int, L.ByteString)
+readConstantPoolCount bs = getNum2 bs
+
+readConstantPoolEntry :: L.ByteString -> (CPEntry, L.ByteString)
+readConstantPoolEntry = undefined
 
 getNum2 :: L.ByteString -> (Int, L.ByteString)
 getNum2 bs = case L.unpack bs of
@@ -34,6 +45,7 @@ getNum2 bs = case L.unpack bs of
 
 
 -- FIXME remove, just for testing stuff
+foo bs = readConstantPoolCount $ skipHeader bs
 main = test
 test = do
   inh <- openBinaryFile "Test.class" ReadMode
