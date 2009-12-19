@@ -3,32 +3,34 @@ import qualified Data.ByteString.Lazy as L
 import System.IO -- FIXME can be removed 
 import Debug.Trace -- FIXME can be removed 
 
+data Class = Class {
+      fqn :: String
+    , methods :: [Method]
+    } deriving (Show)
 
-type Method = String
+data Method = Method {
+      name :: String
+    , invocations :: [Invocation]
+    } deriving (Show)
 
---data CallGraph = CallGraph {
---      method :: Method
---    , callsites :: [CallGraph]
---    } deriving (Show)
-
-data Invocations = Invocations {
-      method :: Method
-    , callsites :: [Method]
+data Invocation = Invocation {
+      classFqn :: String
+    , method :: String
     } deriving (Show)
 
 type NameIdx = Int
 type ClassIdx = Int
 type NameAndTypeIdx = Int
 type DescriptorIdx = Int
-data CPEntry = Class NameIdx
+data CPEntry = Classref NameIdx
              | Fieldref ClassIdx NameAndTypeIdx
              | Methodref ClassIdx NameAndTypeIdx 
              | InterfaceMethodref ClassIdx NameAndTypeIdx
              | NameAndType NameIdx DescriptorIdx
 
 -- http://www.murrayc.com/learning/java/java_classfileformat.shtml
-parse :: L.ByteString -> [Invocations]
-parse bs = []
+parse :: L.ByteString -> Class
+parse bs = Class "com.example.Foo" []
 
 skipHeader :: L.ByteString -> L.ByteString
 skipHeader = L8.drop 8
@@ -38,6 +40,9 @@ readConstantPoolCount bs = getNum2 bs
 
 readConstantPoolEntry :: L.ByteString -> (CPEntry, L.ByteString)
 readConstantPoolEntry = undefined
+
+getNum1 :: L.ByteString -> (Int, L.ByteString)
+getNum1 bs = (fromIntegral $ L.head bs, L.tail bs)
 
 getNum2 :: L.ByteString -> (Int, L.ByteString)
 getNum2 bs = case L.unpack bs of
