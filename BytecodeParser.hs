@@ -1,4 +1,5 @@
 import qualified Data.ByteString.Lazy.Char8 as L8
+import qualified Data.ByteString.Lazy.UTF8 as U8
 import qualified Data.ByteString.Lazy as L
 import System.IO -- FIXME can be removed 
 import Debug.Trace -- FIXME can be removed 
@@ -75,6 +76,11 @@ getNum1 bs = (fromIntegral $ L.head bs, L.tail bs)
 getNum2 :: L.ByteString -> (Int, L.ByteString)
 getNum2 bs = case L.unpack bs of
               x : y : rest -> ((fromIntegral x) * 16 + fromIntegral y, L.drop 2 bs)
+
+getUtf8 :: L.ByteString -> (String, L.ByteString)
+getUtf8 bs = let (length, rem) = getNum1 bs
+                 n = fromIntegral length
+             in (U8.toString $ L.take n rem, L.drop n rem)
 
 getInt :: L.ByteString -> (Int, L.ByteString)
 getInt = undefined
