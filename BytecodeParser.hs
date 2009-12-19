@@ -28,6 +28,7 @@ data CPEntry = Classref NameIdx
              | InterfaceMethodref ClassIdx NameAndTypeIdx
              | NameAndType NameIdx DescriptorIdx
              | Other -- there's stuff in constant pool which does not interest us (values etc.)
+               deriving (Show)
 
 -- http://www.murrayc.com/learning/java/java_classfileformat.shtml
 parse :: L.ByteString -> Class
@@ -68,7 +69,8 @@ getNum2 bs = case L.unpack bs of
 
 
 -- FIXME remove, just to test stuff
-foo bs = readConstantPoolCount $ skipHeader bs
+foo bs = let (count, rem) = readConstantPoolCount $ skipHeader bs
+         in readConstantPoolEntries (count-1) rem
 main = test
 test = do
   inh <- openBinaryFile "Test.class" ReadMode
