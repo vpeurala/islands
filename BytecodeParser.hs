@@ -39,6 +39,12 @@ skipHeader = L8.drop 8
 readConstantPoolCount :: L.ByteString -> (Int, L.ByteString)
 readConstantPoolCount bs = getNum2 bs
 
+readConstantPoolEntries :: Int -> L.ByteString -> ([CPEntry], L.ByteString)
+readConstantPoolEntries 0 bs = ([], bs)
+readConstantPoolEntries x bs = let (e, rem1) = readConstantPoolEntry bs
+                                   (es, rem2) = readConstantPoolEntries (x-1) rem1
+                               in (e : es, rem2)
+
 -- FIXME cleanup this ugly implementation, how to chain (x, rem) ?
 readConstantPoolEntry :: L.ByteString -> (CPEntry, L.ByteString)
 readConstantPoolEntry bs = let tag = getNum1 bs
