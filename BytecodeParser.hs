@@ -27,6 +27,7 @@ data CPEntry = Classref NameIdx
              | Methodref ClassIdx NameAndTypeIdx 
              | InterfaceMethodref ClassIdx NameAndTypeIdx
              | NameAndType NameIdx DescriptorIdx
+             | Other -- there's stuff in constant pool which does not interest us (values etc.)
 
 -- http://www.murrayc.com/learning/java/java_classfileformat.shtml
 parse :: L.ByteString -> Class
@@ -39,7 +40,15 @@ readConstantPoolCount :: L.ByteString -> (Int, L.ByteString)
 readConstantPoolCount bs = getNum2 bs
 
 readConstantPoolEntry :: L.ByteString -> (CPEntry, L.ByteString)
-readConstantPoolEntry = undefined
+readConstantPoolEntry bs = let tag = getNum1 bs
+                               e1 entry (idx, bs) = (entry idx, bs)
+                           in case fst tag of
+                                7  -> e1 Classref (getNum2 $ snd tag)
+--                             9  -> Fieldref 0 0
+--                             10 -> Methodref 0 0
+--                             11 -> InterfaceMethodref 0 0
+--                             12 -> NameAndType 0 0
+                                _  -> (Other, snd tag)
 
 getNum1 :: L.ByteString -> (Int, L.ByteString)
 getNum1 bs = (fromIntegral $ L.head bs, L.tail bs)
