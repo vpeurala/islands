@@ -6,8 +6,13 @@ import Debug.Trace -- FIXME can be removed
 
 data Class = Class {
       fqn :: String
+    , superclass :: String
+    , interfaces :: [String]
+    , fields :: [Field]
     , methods :: [Method]
     } deriving (Show)
+
+type Field = String
 
 data Method = Method {
       name :: String
@@ -37,7 +42,7 @@ data CPEntry = Classref NameIdx
 
 -- http://www.murrayc.com/learning/java/java_classfileformat.shtml
 parse :: L.ByteString -> Class
-parse bs = Class "com.example.Foo" []
+parse bs = Class "com.example.Foo" "java.lang.Object" [] [] []
 
 skipHeader :: L.ByteString -> L.ByteString
 skipHeader = L8.drop 8
