@@ -39,15 +39,18 @@ skipHeader = L8.drop 8
 readConstantPoolCount :: L.ByteString -> (Int, L.ByteString)
 readConstantPoolCount bs = getNum2 bs
 
+-- FIXME cleanup this ugly implementation, how to chain (x, rem) ?
 readConstantPoolEntry :: L.ByteString -> (CPEntry, L.ByteString)
 readConstantPoolEntry bs = let tag = getNum1 bs
                                e1 entry (idx, bs) = (entry idx, bs)
+                               e2 entry (idx1, bs) f = let (idx2, rem) = f bs
+                                                        in (entry idx1 idx2, rem)
                            in case fst tag of
                                 7  -> e1 Classref (getNum2 $ snd tag)
---                             9  -> Fieldref 0 0
---                             10 -> Methodref 0 0
---                             11 -> InterfaceMethodref 0 0
---                             12 -> NameAndType 0 0
+                                9  -> e2 Fieldref (getNum2 $ snd tag) getNum2
+                                10 -> e2 Methodref (getNum2 $ snd tag) getNum2
+                                11 -> e2 InterfaceMethodref (getNum2 $ snd tag) getNum2
+                                12 -> e2 NameAndType (getNum2 $ snd tag) getNum2
                                 _  -> (Other, snd tag)
 
 getNum1 :: L.ByteString -> (Int, L.ByteString)
@@ -58,7 +61,7 @@ getNum2 bs = case L.unpack bs of
               x : y : rest -> ((fromIntegral x) * 16 + fromIntegral y, L.drop 2 bs)
 
 
--- FIXME remove, just for testing stuff
+-- FIXME remove, just to test stuff
 foo bs = readConstantPoolCount $ skipHeader bs
 main = test
 test = do
