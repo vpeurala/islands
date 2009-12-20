@@ -55,8 +55,10 @@ parse bs = let (count, rem1) = getNum16 $ skipHeader bs
                (fqn, rem3) = readClassname cp $ skipAccessFlags rem2
                (superclass, rem4) = readClassname cp rem3
                (interfaces, rem5) = readInterfaces cp rem4
-           in Class fqn superclass interfaces [] []
+               (fields, rem6) = readFields cp rem5
+           in Class fqn superclass interfaces fields []
 
+-- FIXME see readUtf8
 readClassname :: ConstantPool -> L.ByteString -> (String, L.ByteString)
 readClassname cp bs = let (classIdx, rem) = getNum16 bs
                           Utf8 fqn = let Classref fqnIdx = cp ! classIdx
@@ -80,10 +82,13 @@ readInterfaces cp bs = uncurry readInterface $ getNum16 bs
                                     (xs, rem'') = readInterface (n-1) rem'
                                 in (fqn : xs, rem'')
 
---readFields :: ConstantPool -> L.ByteString -> ([Field], L.ByteString)
---readFields cp bs = uncurry readFile $ getNum16 bs
---    where readField 0 rem = ([], rem)
---          readField n rem = let (name, rem') = 
+readFields :: ConstantPool -> L.ByteString -> ([Field], L.ByteString)
+readFields cp bs = uncurry readField $ getNum16 bs
+    where readField 0 rem = ([], rem)
+          readField n rem = let (name, rem') = readUtf8 cp $ skipAccessFlags rem
+                                (t, rem'') = readUtf8 cp rem'
+                                (fs, rem''') = readField (n-1) rem''
+                            in (Field name t : fs, rem''')
 
 readConstantPool :: Int -> L.ByteString -> (ConstantPool, L.ByteString)
 readConstantPool n bs = let (entries, rem) = readConstantPoolEntries n bs
