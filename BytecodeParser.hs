@@ -14,16 +14,19 @@ data Class = Class {
     , methods :: [Method]
     } deriving (Show)
 
-type Field = String
+data Field = Field {
+      fieldName :: String
+    , fieldType :: String
+    } deriving (Show)
 
 data Method = Method {
-      name :: String
+      methodName :: String
     , invocations :: [Invocation]
     } deriving (Show)
 
 data Invocation = Invocation {
-      classFqn :: String
-    , method :: String
+      targetClass :: String
+    , targetMethod :: String
     } deriving (Show)
 
 type ConstantPool = Map Int CPEntry
@@ -60,6 +63,11 @@ readClassname cp bs = let (classIdx, rem) = getNum16 bs
                                      in cp ! fqnIdx
                       in (fqn, rem)
 
+readUtf8 :: ConstantPool -> L.ByteString -> (String, L.ByteString)
+readUtf8 cp bs = let (idx, rem) = getNum16 bs
+                     Utf8 s = cp ! idx
+                 in (s, rem)
+
 skipHeader :: L.ByteString -> L.ByteString
 skipHeader = L8.drop 8
 skipAccessFlags = L8.drop 2
@@ -73,9 +81,9 @@ readInterfaces cp bs = uncurry readInterface $ getNum16 bs
                                 in (fqn : xs, rem'')
 
 --readFields :: ConstantPool -> L.ByteString -> ([Field], L.ByteString)
---readFields cp bs = let (count, rem) = getNum16 bs
---                   in readField count rem
---                      where 
+--readFields cp bs = uncurry readFile $ getNum16 bs
+--    where readField 0 rem = ([], rem)
+--          readField n rem = let (name, rem') = 
 
 readConstantPool :: Int -> L.ByteString -> (ConstantPool, L.ByteString)
 readConstantPool n bs = let (entries, rem) = readConstantPoolEntries n bs
