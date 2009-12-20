@@ -45,14 +45,21 @@ data CPEntry = Classref NameIdx
                deriving (Show)
 
 -- http://www.murrayc.com/learning/java/java_classfileformat.shtml
+-- FIXME clean up manual threading of rems
 parse :: L.ByteString -> Class
-parse bs = let (count, rem1) = readConstantPoolCount $ skipHeader bs
+parse bs = let (count, rem1) = readCount16 $ skipHeader bs
                (cp, rem2) = readConstantPool (count-1) rem1
                (classIdx, rem3) = getNum16 $ skipAccessFlags rem2
                (superclassIdx, rem4) = getNum16 rem3
                fqn = parseClassname cp classIdx
                superclass = parseClassname cp superclassIdx
            in Class fqn superclass [] [] []
+
+readClassname :: ConstantPool -> L.ByteString -> (String, L.ByteString)
+readClassname cp bs = let (classIdx, rem) = getNum16 bs
+                          Utf8 fqn = let Classref fqnIdx = cp ! classIdx
+                                     in cp ! fqnIdx
+                      in (fqn, rem)
 
 parseClassname :: ConstantPool -> Int -> String
 parseClassname cp classIdx = let Utf8 fqn = let Classref fqnIdx = cp ! classIdx
@@ -63,8 +70,18 @@ skipHeader :: L.ByteString -> L.ByteString
 skipHeader = L8.drop 8
 skipAccessFlags = L8.drop 2
 
-readConstantPoolCount :: L.ByteString -> (Int, L.ByteString)
-readConstantPoolCount = getNum16
+-- FIXME notice similarity with 'readConstantPoolEntries'
+readInterfaces :: ConstantPool -> L.ByteString -> ([String], L.ByteString)
+readInterfaces cp bs = let (count, rem1) = readCount16 bs
+                       in readInterface count rem1
+                           where readInterface 0 rem = ([], rem)
+                                 readInterface n rem = let (fqn, rem') = readClassname cp rem
+                                                           (xs, rem'') = readInterface (n-1) rem'
+                                                       in (fqn : xs, rem'')
+
+-- FIXME remove
+readCount16 :: L.ByteString -> (Int, L.ByteString)
+readCount16 = getNum16
 
 readConstantPool :: Int -> L.ByteString -> (ConstantPool, L.ByteString)
 readConstantPool n bs = let (entries, rem) = readConstantPoolEntries n bs
@@ -72,8 +89,8 @@ readConstantPool n bs = let (entries, rem) = readConstantPoolEntries n bs
 
 readConstantPoolEntries :: Int -> L.ByteString -> ([CPEntry], L.ByteString)
 readConstantPoolEntries 0 bs = ([], bs)
-readConstantPoolEntries x bs = let (e, rem1) = readConstantPoolEntry bs
-                                   (es, rem2) = readConstantPoolEntries (x-1) rem1
+readConstantPoolEntries n bs = let (e, rem1) = readConstantPoolEntry bs
+                                   (es, rem2) = readConstantPoolEntries (n-1) rem1
                                in (e : es, rem2)
 
 -- FIXME cleanup this ugly implementation, how to chain (x, rem) ?
