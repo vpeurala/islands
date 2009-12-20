@@ -47,7 +47,7 @@ data CPEntry = Classref NameIdx
 -- http://www.murrayc.com/learning/java/java_classfileformat.shtml
 -- FIXME clean up manual threading of rems
 parse :: L.ByteString -> Class
-parse bs = let (count, rem1) = readCount16 $ skipHeader bs
+parse bs = let (count, rem1) = getNum16 $ skipHeader bs
                (cp, rem2) = readConstantPool (count-1) rem1
                (classIdx, rem3) = getNum16 $ skipAccessFlags rem2
                (superclassIdx, rem4) = getNum16 rem3
@@ -73,16 +73,12 @@ skipAccessFlags = L8.drop 2
 
 -- FIXME notice similarity with 'readConstantPoolEntries'
 readInterfaces :: ConstantPool -> L.ByteString -> ([String], L.ByteString)
-readInterfaces cp bs = let (count, rem) = readCount16 bs
-                       in readInterface count rem -- FIXME "untuple" readInterface readCount16
+readInterfaces cp bs = let (count, rem) = getNum16 bs
+                       in readInterface count rem -- FIXME "untuple" readInterface getNum16
                            where readInterface 0 rem = ([], rem)
                                  readInterface n rem = let (fqn, rem') = readClassname cp rem
                                                            (xs, rem'') = readInterface (n-1) rem'
                                                        in (fqn : xs, rem'')
-
--- FIXME remove
-readCount16 :: L.ByteString -> (Int, L.ByteString)
-readCount16 = getNum16
 
 readConstantPool :: Int -> L.ByteString -> (ConstantPool, L.ByteString)
 readConstantPool n bs = let (entries, rem) = readConstantPoolEntries n bs
