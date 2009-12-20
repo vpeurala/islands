@@ -49,10 +49,8 @@ data CPEntry = Classref NameIdx
 parse :: L.ByteString -> Class
 parse bs = let (count, rem1) = getNum16 $ skipHeader bs
                (cp, rem2) = readConstantPool (count-1) rem1
-               (classIdx, rem3) = getNum16 $ skipAccessFlags rem2
-               (superclassIdx, rem4) = getNum16 rem3
-               fqn = parseClassname cp classIdx
-               superclass = parseClassname cp superclassIdx
+               (fqn, rem3) = readClassname cp $ skipAccessFlags rem2
+               (superclass, rem4) = readClassname cp rem3
            in Class fqn superclass [] [] []
 
 readClassname :: ConstantPool -> L.ByteString -> (String, L.ByteString)
@@ -60,12 +58,6 @@ readClassname cp bs = let (classIdx, rem) = getNum16 bs
                           Utf8 fqn = let Classref fqnIdx = cp ! classIdx
                                      in cp ! fqnIdx
                       in (fqn, rem)
-
--- FIXME remove
-parseClassname :: ConstantPool -> Int -> String
-parseClassname cp classIdx = let Utf8 fqn = let Classref fqnIdx = cp ! classIdx
-                                            in cp ! fqnIdx
-                             in fqn
 
 skipHeader :: L.ByteString -> L.ByteString
 skipHeader = L8.drop 8
