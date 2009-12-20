@@ -81,7 +81,7 @@ getNum8 bs = (fromIntegral $ L.head bs, L.tail bs)
 
 getNum16 :: L.ByteString -> (Int, L.ByteString)
 getNum16 bs = case L.unpack bs of
-                x : y : rest -> ((fromIntegral x) * 16 + fromIntegral y, L.drop 2 bs)
+                x : y : rest -> ((fromIntegral x) * 256 + fromIntegral y, L.drop 2 bs)
 
 getUtf8 :: L.ByteString -> (String, L.ByteString)
 getUtf8 bs = let (length, rem) = getNum16 bs
