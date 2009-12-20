@@ -73,8 +73,12 @@ readUtf8 cp bs = let (idx, rem) = getNum16 bs
 skipHeader :: L.ByteString -> L.ByteString
 skipHeader = L8.drop 8
 skipAccessFlags = L8.drop 2
+skipAttributes bs = uncurry skipAttribute $ getNum16 bs
+    where skipAttribute 0 rem = rem
+          skipAttribute n rem = let (length, rem') = getNum32 bs
+                                in L.drop (fromIntegral length) $ skipAttribute (n-1) rem'
 
--- FIXME notice similarity with 'readFields' and 'readConstantPoolEntries'
+-- FIXME notice similarity with 'readFields', 'skipAttributes' and 'readConstantPoolEntries'
 readInterfaces :: ConstantPool -> L.ByteString -> ([String], L.ByteString)
 readInterfaces cp bs = uncurry readInterface $ getNum16 bs
     where readInterface 0 rem = ([], rem)
@@ -87,8 +91,9 @@ readFields cp bs = uncurry readField $ getNum16 bs
     where readField 0 rem = ([], rem)
           readField n rem = let (name, rem') = readUtf8 cp $ skipAccessFlags rem
                                 (t, rem'') = readUtf8 cp rem'
-                                (fs, rem''') = readField (n-1) rem''
-                            in (Field name t : fs, rem''')
+                                rem''' = skipAttributes rem''
+                                (fs, rem'''') = readField (n-1) rem'''
+                            in (Field name t : fs, rem'''')
 
 readConstantPool :: Int -> L.ByteString -> (ConstantPool, L.ByteString)
 readConstantPool n bs = let (entries, rem) = readConstantPoolEntries n bs
@@ -113,10 +118,10 @@ readConstantPoolEntry bs = let tag = getNum8 bs
                                 11 -> e2 InterfaceMethodref (getNum16 $ snd tag) getNum16
                                 12 -> e2 NameAndType (getNum16 $ snd tag) getNum16
                                 8  -> e1 Stringref (getNum16 $ snd tag)
-                                3  -> e1 Other (getInt $ snd tag)
-                                4  -> e1 Other (getInt $ snd tag)
-                                5  -> e2 Other2 (getInt $ snd tag) getInt
-                                6  -> e2 Other2 (getInt $ snd tag) getInt
+                                3  -> e1 Other (getNum32 $ snd tag)
+                                4  -> e1 Other (getNum32 $ snd tag)
+                                5  -> e2 Other2 (getNum32 $ snd tag) getNum32
+                                6  -> e2 Other2 (getNum32 $ snd tag) getNum32
                                 1  -> e1 Utf8 (getUtf8 $ snd tag)
 
 getNum8 :: L.ByteString -> (Int, L.ByteString)
@@ -126,13 +131,15 @@ getNum16 :: L.ByteString -> (Int, L.ByteString)
 getNum16 bs = case L.unpack bs of
                 x : y : rest -> ((fromIntegral x) * 256 + fromIntegral y, L.drop 2 bs)
 
+getNum32 :: L.ByteString -> (Int, L.ByteString)
+getNum32 bs = let (high, rem) = getNum16 bs
+                  (low, rem') = getNum16 rem
+              in (high * 65536 + low, rem')
+
 getUtf8 :: L.ByteString -> (String, L.ByteString)
 getUtf8 bs = let (length, rem) = getNum16 bs
                  n = fromIntegral length
              in (U8.toString $ L.take n rem, L.drop n rem)
-
-getInt :: L.ByteString -> (Int, L.ByteString)
-getInt = undefined
 
 -- FIXME remove, just to test stuff
 main = test
