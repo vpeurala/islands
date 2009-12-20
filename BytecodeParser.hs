@@ -64,14 +64,18 @@ skipHeader :: L.ByteString -> L.ByteString
 skipHeader = L8.drop 8
 skipAccessFlags = L8.drop 2
 
--- FIXME notice similarity with 'readConstantPoolEntries'
+-- FIXME notice similarity with 'readFields' and 'readConstantPoolEntries'
 readInterfaces :: ConstantPool -> L.ByteString -> ([String], L.ByteString)
-readInterfaces cp bs = let (count, rem) = getNum16 bs
-                       in readInterface count rem -- FIXME "untuple" readInterface getNum16
-                           where readInterface 0 rem = ([], rem)
-                                 readInterface n rem = let (fqn, rem') = readClassname cp rem
-                                                           (xs, rem'') = readInterface (n-1) rem'
-                                                       in (fqn : xs, rem'')
+readInterfaces cp bs = uncurry readInterface $ getNum16 bs
+    where readInterface 0 rem = ([], rem)
+          readInterface n rem = let (fqn, rem') = readClassname cp rem
+                                    (xs, rem'') = readInterface (n-1) rem'
+                                in (fqn : xs, rem'')
+
+--readFields :: ConstantPool -> L.ByteString -> ([Field], L.ByteString)
+--readFields cp bs = let (count, rem) = getNum16 bs
+--                   in readField count rem
+--                      where 
 
 readConstantPool :: Int -> L.ByteString -> (ConstantPool, L.ByteString)
 readConstantPool n bs = let (entries, rem) = readConstantPoolEntries n bs
