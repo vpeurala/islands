@@ -1,6 +1,8 @@
 import qualified Data.ByteString.Lazy.Char8 as L8
 import qualified Data.ByteString.Lazy.UTF8 as U8
 import qualified Data.ByteString.Lazy as L
+import Data.Map (Map)
+import qualified Data.Map as Map
 import System.IO -- FIXME can be removed 
 import Debug.Trace -- FIXME can be removed 
 
@@ -51,6 +53,10 @@ skipAccessFlags = L8.drop 2
 readConstantPoolCount :: L.ByteString -> (Int, L.ByteString)
 readConstantPoolCount = getNum16
 
+readConstantPool :: Int -> L.ByteString -> (Map Int CPEntry, L.ByteString)
+readConstantPool n bs = let (entries, rem) = readConstantPoolEntries n bs
+                        in (Map.fromList $ [1..] `zip` entries, rem)
+
 readConstantPoolEntries :: Int -> L.ByteString -> ([CPEntry], L.ByteString)
 readConstantPoolEntries 0 bs = ([], bs)
 readConstantPoolEntries x bs = let (e, rem1) = readConstantPoolEntry bs
@@ -93,7 +99,7 @@ getInt = undefined
 
 -- FIXME remove, just to test stuff
 foo bs = let (count, rem1) = readConstantPoolCount $ skipHeader bs
-             (cp, rem2) = readConstantPoolEntries (count-1) rem1
+             (cp, rem2) = readConstantPool (count-1) rem1
              (fqn, rem3) = getNum16 $ skipAccessFlags rem2
          in (fqn, cp)
 
