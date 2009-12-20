@@ -26,6 +26,8 @@ data Invocation = Invocation {
     , method :: String
     } deriving (Show)
 
+type ConstantPool = Map Int CPEntry
+
 type NameIdx = Int
 type ClassIdx = Int
 type NameAndTypeIdx = Int
@@ -47,9 +49,15 @@ parse :: L.ByteString -> Class
 parse bs = let (count, rem1) = readConstantPoolCount $ skipHeader bs
                (cp, rem2) = readConstantPool (count-1) rem1
                (classIdx, rem3) = getNum16 $ skipAccessFlags rem2
-               Utf8 fqn = let Classref fqnIdx = cp ! classIdx
-                          in cp ! fqnIdx
-           in Class fqn "java.lang.Object" [] [] []
+               (superclassIdx, rem4) = getNum16 rem3
+               fqn = parseClassname cp classIdx
+               superclass = parseClassname cp superclassIdx
+           in Class fqn superclass [] [] []
+
+parseClassname :: ConstantPool -> Int -> String
+parseClassname cp classIdx = let Utf8 fqn = let Classref fqnIdx = cp ! classIdx
+                                            in cp ! fqnIdx
+                             in fqn
 
 skipHeader :: L.ByteString -> L.ByteString
 skipHeader = L8.drop 8
@@ -58,7 +66,7 @@ skipAccessFlags = L8.drop 2
 readConstantPoolCount :: L.ByteString -> (Int, L.ByteString)
 readConstantPoolCount = getNum16
 
-readConstantPool :: Int -> L.ByteString -> (Map Int CPEntry, L.ByteString)
+readConstantPool :: Int -> L.ByteString -> (ConstantPool, L.ByteString)
 readConstantPool n bs = let (entries, rem) = readConstantPoolEntries n bs
                         in (Map.fromList $ [1..] `zip` entries, rem)
 
