@@ -61,6 +61,7 @@ readClassname cp bs = let (classIdx, rem) = getNum16 bs
                                      in cp ! fqnIdx
                       in (fqn, rem)
 
+-- FIXME remove
 parseClassname :: ConstantPool -> Int -> String
 parseClassname cp classIdx = let Utf8 fqn = let Classref fqnIdx = cp ! classIdx
                                             in cp ! fqnIdx
@@ -72,8 +73,8 @@ skipAccessFlags = L8.drop 2
 
 -- FIXME notice similarity with 'readConstantPoolEntries'
 readInterfaces :: ConstantPool -> L.ByteString -> ([String], L.ByteString)
-readInterfaces cp bs = let (count, rem1) = readCount16 bs
-                       in readInterface count rem1
+readInterfaces cp bs = let (count, rem) = readCount16 bs
+                       in readInterface count rem -- FIXME "untuple" readInterface readCount16
                            where readInterface 0 rem = ([], rem)
                                  readInterface n rem = let (fqn, rem') = readClassname cp rem
                                                            (xs, rem'') = readInterface (n-1) rem'
@@ -89,9 +90,9 @@ readConstantPool n bs = let (entries, rem) = readConstantPoolEntries n bs
 
 readConstantPoolEntries :: Int -> L.ByteString -> ([CPEntry], L.ByteString)
 readConstantPoolEntries 0 bs = ([], bs)
-readConstantPoolEntries n bs = let (e, rem1) = readConstantPoolEntry bs
-                                   (es, rem2) = readConstantPoolEntries (n-1) rem1
-                               in (e : es, rem2)
+readConstantPoolEntries n bs = let (e, rem) = readConstantPoolEntry bs
+                                   (es, rem') = readConstantPoolEntries (n-1) rem
+                               in (e : es, rem')
 
 -- FIXME cleanup this ugly implementation, how to chain (x, rem) ?
 readConstantPoolEntry :: L.ByteString -> (CPEntry, L.ByteString)
