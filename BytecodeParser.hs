@@ -1,7 +1,7 @@
 import qualified Data.ByteString.Lazy.Char8 as L8
 import qualified Data.ByteString.Lazy.UTF8 as U8
 import qualified Data.ByteString.Lazy as L
-import Data.Map (Map)
+import Data.Map (Map, (!))
 import qualified Data.Map as Map
 import System.IO -- FIXME can be removed 
 import Debug.Trace -- FIXME can be removed 
@@ -44,7 +44,12 @@ data CPEntry = Classref NameIdx
 
 -- http://www.murrayc.com/learning/java/java_classfileformat.shtml
 parse :: L.ByteString -> Class
-parse bs = Class "com.example.Foo" "java.lang.Object" [] [] []
+parse bs = let (count, rem1) = readConstantPoolCount $ skipHeader bs
+               (cp, rem2) = readConstantPool (count-1) rem1
+               (classIdx, rem3) = getNum16 $ skipAccessFlags rem2
+               Utf8 fqn = let Classref fqnIdx = cp ! classIdx
+                          in cp ! fqnIdx
+           in Class fqn "java.lang.Object" [] [] []
 
 skipHeader :: L.ByteString -> L.ByteString
 skipHeader = L8.drop 8
@@ -98,16 +103,9 @@ getInt :: L.ByteString -> (Int, L.ByteString)
 getInt = undefined
 
 -- FIXME remove, just to test stuff
-foo bs = let (count, rem1) = readConstantPoolCount $ skipHeader bs
-             (cp, rem2) = readConstantPool (count-1) rem1
-             (fqn, rem3) = getNum16 $ skipAccessFlags rem2
-         in (fqn, cp)
-
 main = test
 test = do
   inh <- openBinaryFile "Test.class" ReadMode
-  graph <- L.hGetContents inh >>= \bs -> return (parse bs)
-  putStrLn $ show graph
-  x <- L.hGetContents inh >>= \bs -> return (foo bs)
-  putStrLn $ show x
+  clazz <- L.hGetContents inh >>= \bs -> return (parse bs)
+  putStrLn $ show clazz
   hClose inh
