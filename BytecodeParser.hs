@@ -51,7 +51,8 @@ parse bs = let (count, rem1) = getNum16 $ skipHeader bs
                (cp, rem2) = readConstantPool (count-1) rem1
                (fqn, rem3) = readClassname cp $ skipAccessFlags rem2
                (superclass, rem4) = readClassname cp rem3
-           in Class fqn superclass [] [] []
+               (interfaces, rem5) = readInterfaces cp rem4
+           in Class fqn superclass interfaces [] []
 
 readClassname :: ConstantPool -> L.ByteString -> (String, L.ByteString)
 readClassname cp bs = let (classIdx, rem) = getNum16 bs
