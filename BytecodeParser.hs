@@ -17,11 +17,13 @@ data Class = Class {
 data Field = Field {
       fieldName :: String
     , fieldType :: String
+    , fieldAttrs :: [Attribute]
     } deriving (Show)
 
 data Method = Method {
       methodName :: String
     , methodType :: String
+    , methodAttrs :: [Attribute]
     , invocations :: [Invocation]
     } deriving (Show)
 
@@ -35,7 +37,7 @@ type ConstantPool = Map Int CPEntry
 data Attribute = Attribute {
       attrName :: String
     , attrBytes :: L.ByteString
-    }
+    } deriving (Show)
 
 type NameIdx = Int
 type ClassIdx = Int
@@ -106,18 +108,18 @@ readFields cp bs = uncurry readField $ getNum16 bs
     where readField 0 rem = ([], rem)
           readField n rem = let (name, rem') = readUtf8 cp $ skipAccessFlags rem
                                 (t, rem'') = readUtf8 cp rem'
-                                (_, rem''') = readAttributes cp rem''
+                                (attrs, rem''') = readAttributes cp rem''
                                 (fs, rem'''') = readField (n-1) rem'''
-                            in (Field name t : fs, rem'''')
+                            in (Field name t attrs : fs, rem'''')
 
 readMethods :: ConstantPool -> L.ByteString -> ([Method], L.ByteString)
 readMethods cp bs = uncurry readMethod $ getNum16 bs
     where readMethod 0 rem = ([], rem)
           readMethod n rem = let (name, rem') = readUtf8 cp $ skipAccessFlags rem
                                  (t, rem'') = readUtf8 cp rem'
-                                 (_, rem''') = readAttributes cp rem''
+                                 (attrs, rem''') = readAttributes cp rem''
                                  (ms, rem'''') = readMethod (n-1) rem'''
-                             in (Method name t [] : ms, rem'''')
+                             in (Method name t attrs [] : ms, rem'''')
 
 readConstantPool :: Int -> L.ByteString -> (ConstantPool, L.ByteString)
 readConstantPool n bs = let (entries, rem) = readConstantPoolEntries n bs
