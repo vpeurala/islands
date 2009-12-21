@@ -90,10 +90,11 @@ readAttributes cp bs = uncurry readAttribute $ getNum16 bs
                                     (length, rem'') = getNum32 bs
                                     len = fromIntegral length
                                     (attrs, rem''') = readAttribute (n-1) rem''
-                                in (mkAttr name (L.take len rem''') : attrs, L.drop len rem''')
+                                    (attr, rem'''') = mkAttr name len rem'''
+                                in (attr : attrs, rem'''')
 
-mkAttr :: String -> L.ByteString -> Attribute
-mkAttr = Attribute
+--mkAttr :: String -> Int -> L.ByteString -> (Attribute, L.ByteString)
+mkAttr name len bs = (Attribute name (L.take len bs), L.drop len bs)
 
 -- FIXME notice similarity with 'readFields', 'readMethods', 'readAttributes' and 'readConstantPoolEntries'
 readInterfaces :: ConstantPool -> L.ByteString -> ([String], L.ByteString)
