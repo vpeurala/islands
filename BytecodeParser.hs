@@ -21,6 +21,7 @@ data Field = Field {
 
 data Method = Method {
       methodName :: String
+    , methodType :: String
     , invocations :: [Invocation]
     } deriving (Show)
 
@@ -56,7 +57,8 @@ parse bs = let (count, rem1) = getNum16 $ skipHeader bs
                (superclass, rem4) = readClassname cp rem3
                (interfaces, rem5) = readInterfaces cp rem4
                (fields, rem6) = readFields cp rem5
-           in Class fqn superclass interfaces fields []
+               (methods, rem7) = readMethods cp rem6
+           in Class fqn superclass interfaces fields methods
 
 -- FIXME see readUtf8
 readClassname :: ConstantPool -> L.ByteString -> (String, L.ByteString)
@@ -78,7 +80,7 @@ skipAttributes bs = uncurry skipAttribute $ getNum16 bs
           skipAttribute n rem = let (length, rem') = getNum32 bs
                                 in L.drop (fromIntegral length) $ skipAttribute (n-1) rem'
 
--- FIXME notice similarity with 'readFields', 'skipAttributes' and 'readConstantPoolEntries'
+-- FIXME notice similarity with 'readFields', 'readMethods', 'skipAttributes' and 'readConstantPoolEntries'
 readInterfaces :: ConstantPool -> L.ByteString -> ([String], L.ByteString)
 readInterfaces cp bs = uncurry readInterface $ getNum16 bs
     where readInterface 0 rem = ([], rem)
@@ -94,6 +96,15 @@ readFields cp bs = uncurry readField $ getNum16 bs
                                 rem''' = skipAttributes rem''
                                 (fs, rem'''') = readField (n-1) rem'''
                             in (Field name t : fs, rem'''')
+
+readMethods :: ConstantPool -> L.ByteString -> ([Method], L.ByteString)
+readMethods cp bs = uncurry readMethod $ getNum16 bs
+    where readMethod 0 rem = ([], rem)
+          readMethod n rem = let (name, rem') = readUtf8 cp $ skipAccessFlags rem
+                                 (t, rem'') = readUtf8 cp rem'
+                                 rem''' = skipAttributes rem''
+                                 (ms, rem'''') = readMethod (n-1) rem'''
+                             in (Method name t [] : ms, rem'''')
 
 readConstantPool :: Int -> L.ByteString -> (ConstantPool, L.ByteString)
 readConstantPool n bs = let (entries, rem) = readConstantPoolEntries n bs
