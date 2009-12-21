@@ -94,7 +94,22 @@ readAttributes cp bs = uncurry readAttribute $ getNum16 bs
                                 in (attr : attrs, rem'''')
 
 --mkAttr :: String -> Int -> L.ByteString -> (Attribute, L.ByteString)
-mkAttr name len bs = (Attribute name (L.take len bs), L.drop len bs)
+mkAttr name len bs = case name of
+                       "Code" -> let (maxStack, rem) = getNum16 bs
+                                     (maxLocals, rem') = getNum16 rem
+                                     (codeLen, rem'') = getNum32 rem'
+                                     (code, rem''') = (L.take (fromIntegral codeLen) rem'', L.drop (fromIntegral codeLen) rem'')
+                                     (excpLen, rem'''') = getNum16 rem'''
+                                     rem''''' = L.drop (fromIntegral excpLen) rem''''
+                                     rem'''''' = skipCodeAttributes rem'''''
+                                 in (Attribute name code, rem'''''')
+                       _ -> (Attribute name (L.take len bs), L.drop len bs)
+
+skipCodeAttributes :: L.ByteString -> L.ByteString
+skipCodeAttributes = undefined
+--skipCodeAttributes bs = uncurry skipCodeAttr getNum16 bs
+--    where skipCodeAttr 0 rem = rem
+--          skipCodeAttr n rem = let (attrLen, rem) = 
 
 -- FIXME notice similarity with 'readFields', 'readMethods', 'readAttributes' and 'readConstantPoolEntries'
 readInterfaces :: ConstantPool -> L.ByteString -> ([String], L.ByteString)
