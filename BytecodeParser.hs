@@ -86,8 +86,8 @@ skipAccessFlags = L8.drop 2
 readAttributes :: ConstantPool -> L.ByteString -> ([Attribute], L.ByteString)
 readAttributes cp bs = uncurry readAttribute $ getNum16 bs
     where readAttribute 0 rem = ([], rem)
-          readAttribute n rem = let (name, rem') = readUtf8 cp bs
-                                    (length, rem'') = getNum32 bs
+          readAttribute n rem = let (name, rem') = readUtf8 cp rem
+                                    (length, rem'') = getNum32 rem'
                                     len = fromIntegral length
                                     (attrs, rem''') = readAttribute (n-1) rem''
                                     (attr, rem'''') = mkAttr name len rem'''
