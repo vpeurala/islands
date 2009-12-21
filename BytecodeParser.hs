@@ -31,6 +31,7 @@ data Invocation = Invocation {
     } deriving (Show)
 
 type ConstantPool = Map Int CPEntry
+type Attribute = L.ByteString
 
 type NameIdx = Int
 type ClassIdx = Int
@@ -75,12 +76,16 @@ readUtf8 cp bs = let (idx, rem) = getNum16 bs
 skipHeader :: L.ByteString -> L.ByteString
 skipHeader = L8.drop 8
 skipAccessFlags = L8.drop 2
-skipAttributes bs = uncurry skipAttribute $ getNum16 bs
-    where skipAttribute 0 rem = rem
-          skipAttribute n rem = let (length, rem') = getNum32 bs
-                                in L.drop (fromIntegral length) $ skipAttribute (n-1) rem'
 
--- FIXME notice similarity with 'readFields', 'readMethods', 'skipAttributes' and 'readConstantPoolEntries'
+readAttributes :: L.ByteString -> ([Attribute], L.ByteString)
+readAttributes bs = uncurry readAttribute $ getNum16 bs
+    where readAttribute 0 rem = ([], rem)
+          readAttribute n rem = let (length, rem') = getNum32 bs
+                                    len = fromIntegral length
+                                    (attrs, rem'') = readAttribute (n-1) rem'
+                                in (L.take len rem'' : attrs, L.drop len rem'')
+
+-- FIXME notice similarity with 'readFields', 'readMethods', 'readAttributes' and 'readConstantPoolEntries'
 readInterfaces :: ConstantPool -> L.ByteString -> ([String], L.ByteString)
 readInterfaces cp bs = uncurry readInterface $ getNum16 bs
     where readInterface 0 rem = ([], rem)
@@ -93,7 +98,7 @@ readFields cp bs = uncurry readField $ getNum16 bs
     where readField 0 rem = ([], rem)
           readField n rem = let (name, rem') = readUtf8 cp $ skipAccessFlags rem
                                 (t, rem'') = readUtf8 cp rem'
-                                rem''' = skipAttributes rem''
+                                (_, rem''') = readAttributes rem''
                                 (fs, rem'''') = readField (n-1) rem'''
                             in (Field name t : fs, rem'''')
 
@@ -102,7 +107,7 @@ readMethods cp bs = uncurry readMethod $ getNum16 bs
     where readMethod 0 rem = ([], rem)
           readMethod n rem = let (name, rem') = readUtf8 cp $ skipAccessFlags rem
                                  (t, rem'') = readUtf8 cp rem'
-                                 rem''' = skipAttributes rem''
+                                 (_, rem''') = readAttributes rem''
                                  (ms, rem'''') = readMethod (n-1) rem'''
                              in (Method name t [] : ms, rem'''')
 
@@ -138,14 +143,15 @@ readConstantPoolEntry bs = let tag = getNum8 bs
 getNum8 :: L.ByteString -> (Int, L.ByteString)
 getNum8 bs = (fromIntegral $ L.head bs, L.tail bs)
 
+-- FIXME use shift operator
 getNum16 :: L.ByteString -> (Int, L.ByteString)
 getNum16 bs = case L.unpack bs of
-                x : y : rest -> ((fromIntegral x) * 256 + fromIntegral y, L.drop 2 bs)
+                x1:x2:rest -> ((fromIntegral x1) * 256 + fromIntegral x2, L.drop 2 bs)
 
+-- FIXME use shift operator, revert
 getNum32 :: L.ByteString -> (Int, L.ByteString)
-getNum32 bs = let (high, rem) = getNum16 bs
-                  (low, rem') = getNum16 rem
-              in (high * 65536 + low, rem')
+getNum32 bs = case L.unpack bs of
+                x1:x2:x3:x4:rest -> ((fromIntegral x1) * 16777216 + (fromIntegral x2) * 65536 + (fromIntegral x3) * 256 + fromIntegral x4, L.drop 4 bs)
 
 getUtf8 :: L.ByteString -> (String, L.ByteString)
 getUtf8 bs = let (length, rem) = getNum16 bs
