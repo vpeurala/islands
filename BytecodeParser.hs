@@ -31,7 +31,11 @@ data Invocation = Invocation {
     } deriving (Show)
 
 type ConstantPool = Map Int CPEntry
-type Attribute = L.ByteString
+
+data Attribute = Attribute {
+      attrName :: String
+    , attrBytes :: L.ByteString
+    }
 
 type NameIdx = Int
 type ClassIdx = Int
@@ -77,13 +81,17 @@ skipHeader :: L.ByteString -> L.ByteString
 skipHeader = L8.drop 8
 skipAccessFlags = L8.drop 2
 
-readAttributes :: L.ByteString -> ([Attribute], L.ByteString)
-readAttributes bs = uncurry readAttribute $ getNum16 bs
+readAttributes :: ConstantPool -> L.ByteString -> ([Attribute], L.ByteString)
+readAttributes cp bs = uncurry readAttribute $ getNum16 bs
     where readAttribute 0 rem = ([], rem)
-          readAttribute n rem = let (length, rem') = getNum32 bs
+          readAttribute n rem = let (name, rem') = readUtf8 cp bs
+                                    (length, rem'') = getNum32 bs
                                     len = fromIntegral length
-                                    (attrs, rem'') = readAttribute (n-1) rem'
-                                in (L.take len rem'' : attrs, L.drop len rem'')
+                                    (attrs, rem''') = readAttribute (n-1) rem''
+                                in (mkAttr name (L.take len rem''') : attrs, L.drop len rem''')
+
+mkAttr :: String -> L.ByteString -> Attribute
+mkAttr = Attribute
 
 -- FIXME notice similarity with 'readFields', 'readMethods', 'readAttributes' and 'readConstantPoolEntries'
 readInterfaces :: ConstantPool -> L.ByteString -> ([String], L.ByteString)
@@ -98,7 +106,7 @@ readFields cp bs = uncurry readField $ getNum16 bs
     where readField 0 rem = ([], rem)
           readField n rem = let (name, rem') = readUtf8 cp $ skipAccessFlags rem
                                 (t, rem'') = readUtf8 cp rem'
-                                (_, rem''') = readAttributes rem''
+                                (_, rem''') = readAttributes cp rem''
                                 (fs, rem'''') = readField (n-1) rem'''
                             in (Field name t : fs, rem'''')
 
@@ -107,7 +115,7 @@ readMethods cp bs = uncurry readMethod $ getNum16 bs
     where readMethod 0 rem = ([], rem)
           readMethod n rem = let (name, rem') = readUtf8 cp $ skipAccessFlags rem
                                  (t, rem'') = readUtf8 cp rem'
-                                 (_, rem''') = readAttributes rem''
+                                 (_, rem''') = readAttributes cp rem''
                                  (ms, rem'''') = readMethod (n-1) rem'''
                              in (Method name t [] : ms, rem'''')
 
