@@ -99,11 +99,14 @@ mkAttr name len bs = case name of
                                      (maxLocals, rem') = getNum16 rem
                                      (codeLen, rem'') = getNum32 rem'
                                      (code, rem''') = (L.take (fromIntegral codeLen) rem'', L.drop (fromIntegral codeLen) rem'')
-                                     (excpLen, rem'''') = getNum16 rem'''
-                                     rem''''' = L.drop (fromIntegral excpLen) rem''''
-                                     rem'''''' = skipCodeAttributes rem'''''
-                                 in (Attribute name code, rem'''''')
+                                     rem'''' = skipExceptionTable rem'''
+                                     rem''''' = skipCodeAttributes rem''''
+                                 in (Attribute name code, rem''''')
                        _ -> (Attribute name (L.take len bs), L.drop len bs)
+
+skipExceptionTable :: L.ByteString -> L.ByteString
+skipExceptionTable = undefined
+--skipExceptionTable = let (count, rem) = getNum16
 
 skipCodeAttributes :: L.ByteString -> L.ByteString
 skipCodeAttributes = undefined
@@ -176,8 +179,9 @@ getNum16 bs = case L.unpack bs of
 
 -- FIXME use shift operator, revert
 getNum32 :: L.ByteString -> (Int, L.ByteString)
-getNum32 bs = case L.unpack bs of
-                x1:x2:x3:x4:rest -> ((fromIntegral x1) * 16777216 + (fromIntegral x2) * 65536 + (fromIntegral x3) * 256 + fromIntegral x4, L.drop 4 bs)
+getNum32 bs = let (high, rem) = getNum16 bs
+                  (low, rem') = getNum16 rem
+              in (high * 65536 + low, rem')
 
 getUtf8 :: L.ByteString -> (String, L.ByteString)
 getUtf8 bs = let (length, rem) = getNum16 bs
@@ -188,6 +192,6 @@ getUtf8 bs = let (length, rem) = getNum16 bs
 main = test
 test = do
   inh <- openBinaryFile "Test.class" ReadMode
-  clazz <- L.hGetContents inh >>= \bs -> return (parse bs)
+  clazz <- L.hGetContents inh >>= return . parse
   putStrLn $ show clazz
   hClose inh
