@@ -110,10 +110,11 @@ skipExceptionTable bs = let (count, rem) = getNum16 bs
                             where skipEntry _ xs = L8.drop 8 xs
 
 skipCodeAttributes :: L.ByteString -> L.ByteString
-skipCodeAttributes = undefined
---skipCodeAttributes bs = uncurry skipCodeAttr getNum16 bs
---    where skipCodeAttr 0 rem = rem
---          skipCodeAttr n rem = let (attrLen, rem) = 
+skipCodeAttributes bs = uncurry skipCodeAttr $ getNum16 bs
+    where skipCodeAttr 0 rem = rem
+          skipCodeAttr n rem = let (nameIdx, rem') = getNum16 rem
+                                   (len, rem'') = getNum32 rem'
+                               in skipCodeAttr (n-1) $ L.drop (fromIntegral len) rem''
 
 -- FIXME notice similarity with 'readFields', 'readMethods', 'readAttributes' and 'readConstantPoolEntries'
 readInterfaces :: ConstantPool -> L.ByteString -> ([String], L.ByteString)
