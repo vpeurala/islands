@@ -19,18 +19,27 @@ resolveInvocation _ _ = Nothing
 invokeInstructions = [invokevirtual, invokespecial, invokestatic, invokeinterface]
 
 length :: Int -> Int
-length i | isOneByteInstr i = 1
-         | isTwoByteInstr i = 2
+length i | isTwoByteInstr i = 2
          | isThreeByteInstr i = 3
          | isFiveByteInstr i = 5
-         | i == tableswitch = undefined
-         | i == lookupswitch = undefined
-         | i == wide = undefined
+         | i == tableswitch = error("implement me")
+         | i == lookupswitch = error("implement me")
+         | i == wide = error("implement me")
+length i = 1
 
-isOneByteInstr i = True
-isTwoByteInstr i = True
-isThreeByteInstr i = True
-isFiveByteInstr i = True
+isTwoByteInstr i = Set.member i twoByteInstrs
+isThreeByteInstr i = Set.member i threeByteInstrs
+isFiveByteInstr i = Set.member i fiveByteInstrs
+
+twoByteInstrs = Set.fromList [bipush, ldc, iload, lload, fload, dload, aload, istore,
+                              lstore, fstore, dstore, astore, ret, newarray]
+threeByteInstrs = Set.fromList [sipush, ldc_w, ldc2_w, iinc, ifeq, ifne, iflt, ifge, ifgt, 
+                                ifle, if_icmpeq, if_icmpne, if_icmplt, if_icmpge, if_icmpgt, 
+                                if_icmple, if_acmpeq, if_acmpne, goto, jsr, putfield,
+                                invokevirtual, invokespecial, invokestatic, new, anewarray,
+                                checkcast, instanceof, ifnull, ifnonnull]
+fiveByteInstrs = Set.fromList [invokeinterface, multianewarray, goto_w, jsr_w]
+
 
 nop = 0x00
 aconst_null = 0x01
