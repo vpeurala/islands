@@ -89,8 +89,8 @@ readAttributes cp bs = uncurry readAttribute $ getNum16 bs
           readAttribute n rem = let (name, rem') = readUtf8 cp rem
                                     (length, rem'') = getNum32 rem'
                                     len = fromIntegral length
-                                    (attrs, rem''') = readAttribute (n-1) rem''
-                                    (attr, rem'''') = mkAttr name len rem'''
+                                    (attr, rem''') = mkAttr name len rem''
+                                    (attrs, rem'''') = readAttribute (n-1) rem'''
                                 in (attr : attrs, rem'''')
 
 --mkAttr :: String -> Int -> L.ByteString -> (Attribute, L.ByteString)
@@ -105,8 +105,9 @@ mkAttr name len bs = case name of
                        _ -> (Attribute name (L.take len bs), L.drop len bs)
 
 skipExceptionTable :: L.ByteString -> L.ByteString
-skipExceptionTable = undefined
---skipExceptionTable = let (count, rem) = getNum16
+skipExceptionTable bs = let (count, rem) = getNum16 bs
+                        in foldr skipEntry rem [1..count]
+                            where skipEntry _ xs = L8.drop 8 xs
 
 skipCodeAttributes :: L.ByteString -> L.ByteString
 skipCodeAttributes = undefined
