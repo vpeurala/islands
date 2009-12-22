@@ -36,7 +36,6 @@ type ConstantPool = Map Int CPEntry
 
 data Attribute = Attribute {
       attrName :: String
-    , attrBytes :: L.ByteString
     } deriving (Show)
 
 type NameIdx = Int
@@ -101,8 +100,8 @@ mkAttr name len bs = case name of
                                      (code, rem''') = (L.take (fromIntegral codeLen) rem'', L.drop (fromIntegral codeLen) rem'')
                                      rem'''' = skipExceptionTable rem'''
                                      rem''''' = skipCodeAttributes rem''''
-                                 in (Attribute name code, rem''''')
-                       _ -> (Attribute name (L.take len bs), L.drop len bs)
+                                 in (Attribute name, rem''''')
+                       _ -> (Attribute name, L.drop len bs)
 
 skipExceptionTable :: L.ByteString -> L.ByteString
 skipExceptionTable bs = let (count, rem) = getNum16 bs
@@ -116,7 +115,7 @@ skipCodeAttributes bs = uncurry skipCodeAttr $ getNum16 bs
                                    (len, rem'') = getNum32 rem'
                                in skipCodeAttr (n-1) $ L.drop (fromIntegral len) rem''
 
--- FIXME notice similarity with 'readFields', 'readMethods', 'readAttributes' and 'readConstantPoolEntries'
+-- FIXME notice similarity with 'readFields', 'readMethods', 'readAttributes' and 'readConstantPoolEntries', ...
 readInterfaces :: ConstantPool -> L.ByteString -> ([String], L.ByteString)
 readInterfaces cp bs = uncurry readInterface $ getNum16 bs
     where readInterface 0 rem = ([], rem)
@@ -179,7 +178,7 @@ getNum16 :: L.ByteString -> (Int, L.ByteString)
 getNum16 bs = case L.unpack bs of
                 x1:x2:rest -> ((fromIntegral x1) * 256 + fromIntegral x2, L.drop 2 bs)
 
--- FIXME use shift operator, revert
+-- FIXME use shift operator
 getNum32 :: L.ByteString -> (Int, L.ByteString)
 getNum32 bs = let (high, rem) = getNum16 bs
                   (low, rem') = getNum16 rem
