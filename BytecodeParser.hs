@@ -1,3 +1,5 @@
+module Islands.Bytecode where
+
 import qualified Data.ByteString.Lazy.Char8 as L8
 import qualified Data.ByteString.Lazy.UTF8 as U8
 import qualified Data.ByteString.Lazy as L
@@ -29,7 +31,8 @@ data Method = Method {
 
 data Invocation = Invocation {
       targetClass :: String
-    , targetMethod :: String
+    , targetMethodName :: String
+    , targetMethodSignature :: String
     } deriving (Show)
 
 type ConstantPool = Map Int CPEntry
@@ -107,6 +110,9 @@ skipExceptionTable :: L.ByteString -> L.ByteString
 skipExceptionTable bs = let (count, rem) = getNum16 bs
                         in foldr skipEntry rem [1..count]
                             where skipEntry _ xs = L8.drop 8 xs
+
+readInvocations :: L.ByteString -> ([Invocation], L.ByteString)
+readInvocations bs = undefined
 
 skipCodeAttributes :: L.ByteString -> L.ByteString
 skipCodeAttributes bs = uncurry skipCodeAttr $ getNum16 bs
