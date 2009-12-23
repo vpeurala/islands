@@ -3,18 +3,6 @@ module Islands.Bytecode.Opcodes where
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Data.Map ((!))
-import Islands.Bytecode
-
-resolveInvocation :: ConstantPool -> [Int] -> Maybe Invocation
-resolveInvocation cp (c:x:y:t) | or $ map (==c) invokeInstructions = 
-                                   let Methodref classIdx nameAndTypeIdx = cp ! ((x*256)+y)
-                                       Classref cnameIdx = cp ! classIdx
-                                       Utf8 classname = cp ! cnameIdx
-                                       NameAndType mnameIdx sigIdx = cp ! nameAndTypeIdx
-                                       Utf8 methodname = cp ! mnameIdx
-                                       Utf8 signature = cp ! sigIdx
-                                   in Just (Invocation classname methodname signature)
-resolveInvocation _ _ = Nothing
 
 invokeInstructions = [invokevirtual, invokespecial, invokestatic, invokeinterface]
 
@@ -39,7 +27,6 @@ threeByteInstrs = Set.fromList [sipush, ldc_w, ldc2_w, iinc, ifeq, ifne, iflt, i
                                 invokevirtual, invokespecial, invokestatic, new, anewarray,
                                 checkcast, instanceof, ifnull, ifnonnull]
 fiveByteInstrs = Set.fromList [invokeinterface, multianewarray, goto_w, jsr_w]
-
 
 nop = 0x00
 aconst_null = 0x01

@@ -5,6 +5,8 @@ import qualified Data.ByteString.Lazy.UTF8 as U8
 import qualified Data.ByteString.Lazy as L
 import Data.Map (Map, (!))
 import qualified Data.Map as Map
+import Data.Word (Word8)
+import qualified Islands.Bytecode.Opcodes as Op
 import System.IO -- FIXME can be removed 
 import Debug.Trace -- FIXME can be removed 
 
@@ -39,6 +41,7 @@ type ConstantPool = Map Int CPEntry
 
 data Attribute = Attribute {
       attrName :: String
+    , attrBytes :: L.ByteString
     } deriving (Show)
 
 type NameIdx = Int
@@ -103,8 +106,8 @@ mkAttr name len bs = case name of
                                      (code, rem''') = (L.take (fromIntegral codeLen) rem'', L.drop (fromIntegral codeLen) rem'')
                                      rem'''' = skipExceptionTable rem'''
                                      rem''''' = skipCodeAttributes rem''''
-                                 in (Attribute name, rem''''')
-                       _ -> (Attribute name, L.drop len bs)
+                                 in (Attribute name code, rem''''')
+                       _ -> (Attribute name (L.take len bs), L.drop len bs)
 
 skipExceptionTable :: L.ByteString -> L.ByteString
 skipExceptionTable bs = let (count, rem) = getNum16 bs
@@ -145,8 +148,25 @@ readMethods cp bs = uncurry readMethod $ getNum16 bs
                                  (t, rem'') = readUtf8 cp rem'
                                  (attrs, rem''') = readAttributes cp rem''
                                  (ms, rem'''') = readMethod (n-1) rem'''
-                             in (Method name t attrs [] : ms, rem'''')
+                             in (mkMethod cp name t attrs : ms, rem'''')
 
+mkMethod :: ConstantPool -> String -> String -> [Attribute] -> Method
+mkMethod cp name sig attrs = Method name sig attrs $ invocations (code attrs)
+    where code attrs = L.empty
+          invocations code = invocation code
+              where invocation c = resolveInvocation cp $ map fromIntegral (L.unpack c)
+
+resolveInvocation :: ConstantPool -> [Int] -> [Invocation]
+resolveInvocation cp (c:x:y:t) | or $ map (==c) Op.invokeInstructions = 
+                                   let Methodref classIdx nameAndTypeIdx = cp ! ((x*256)+y)
+                                       Classref cnameIdx = cp ! classIdx
+                                       Utf8 classname = cp ! cnameIdx
+                                       NameAndType mnameIdx sigIdx = cp ! nameAndTypeIdx
+                                       Utf8 methodname = cp ! mnameIdx
+                                       Utf8 signature = cp ! sigIdx
+                                   in [Invocation classname methodname signature]
+resolveInvocation _ _ = []
+                             
 readConstantPool :: Int -> L.ByteString -> (ConstantPool, L.ByteString)
 readConstantPool n bs = let (entries, rem) = readConstantPoolEntries n bs
                         in (Map.fromList $ [1..] `zip` entries, rem)
