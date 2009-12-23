@@ -6,6 +6,7 @@ import qualified Data.ByteString.Lazy as L
 import Data.Map (Map, (!))
 import qualified Data.Map as Map
 import Data.Word (Word8)
+import Control.Monad (join)
 import qualified Islands.Bytecode.Opcodes as Op
 import System.IO -- FIXME can be removed 
 import Debug.Trace -- FIXME can be removed 
@@ -60,7 +61,7 @@ data CPEntry = Classref NameIdx
              | Other2 Int Int
                deriving (Show)
 
--- http://www.murrayc.com/learning/java/java_classfileformat.shtml
+-- FIXME cleanup all fromIntgral conversions (perhaps by using Word8?)
 -- FIXME clean up manual threading of rems
 parse :: L.ByteString -> Class
 parse bs = let (count, rem1) = getNum16 $ skipHeader bs
@@ -151,10 +152,11 @@ readMethods cp bs = uncurry readMethod $ getNum16 bs
                              in (mkMethod cp name t attrs : ms, rem'''')
 
 mkMethod :: ConstantPool -> String -> String -> [Attribute] -> Method
-mkMethod cp name sig attrs = Method name sig attrs $ invocations (code attrs)
+mkMethod cp name sig attrs = Method name sig attrs $ join (invocations (code attrs))
     where code attrs = L.empty
           invocations code = invocation code
-              where invocation c = resolveInvocation cp $ map fromIntegral (L.unpack c)
+              where invocation c | L.length c == 0 = []
+                    invocation c = (resolveInvocation cp $ map fromIntegral (L.unpack c)) : (invocation (L.drop (fromIntegral $ Op.length (fromIntegral $ L.head c)) c))
 
 resolveInvocation :: ConstantPool -> [Int] -> [Invocation]
 resolveInvocation cp (c:x:y:t) | or $ map (==c) Op.invokeInstructions = 
