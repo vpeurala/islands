@@ -64,6 +64,9 @@ data CPEntry = Classref NameIdx
 
 newtype Parse a = Parse(L.ByteString -> (a, L.ByteString))
 
+unbox :: Parse a -> L.ByteString -> a
+unbox (Parse p) bs = fst $ p bs
+
 identity :: a -> Parse a
 identity a = Parse(\s -> (a, s))
 
@@ -78,8 +81,7 @@ instance Monad Parse where
 
 -- FIXME cleanup all fromIntegral conversions (perhaps by using Word8?)
 parse :: L.ByteString -> Class
-parse = undefined
---parse bs = fst $ parse0 bs
+parse bs = unbox parse0 bs
 
 parse0 :: Parse Class
 parse0 = do header <- skipHeader
@@ -141,7 +143,6 @@ skipCodeAttributes = do count <- getNum16
                                                     len <- getNum32
                                                     Parse(\s -> ((), L.drop (fromIntegral len) s))
 
--- FIXME notice similarity with 'readFields', 'readMethods', 'readAttributes' and 'readConstantPoolEntries', ...
 readInterfaces :: ConstantPool -> Parse [String]
 readInterfaces cp = do count <- getNum16
                        repeatF count (readClassname cp)
