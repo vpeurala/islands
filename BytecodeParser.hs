@@ -128,20 +128,18 @@ skipCodeAttributes bs = uncurry skipCodeAttr $ getNum16 bs
 
 -- FIXME notice similarity with 'readFields', 'readMethods', 'readAttributes' and 'readConstantPoolEntries', ...
 readInterfaces :: ConstantPool -> L.ByteString -> ([String], L.ByteString)
-readInterfaces cp bs = uncurry readInterface $ getNum16 bs
-    where readInterface 0 rem = ([], rem)
-          readInterface n rem = let (fqn, rem') = readClassname cp rem
-                                    (xs, rem'') = readInterface (n-1) rem'
-                                in (fqn : xs, rem'')
+readInterfaces cp bs = let (count, rem) = getNum16 bs
+                       in repeatF count readInterface rem
+                           where readInterface = readClassname cp
 
 readFields :: ConstantPool -> L.ByteString -> ([Field], L.ByteString)
-readFields cp bs = uncurry readField $ getNum16 bs
-    where readField 0 rem = ([], rem)
-          readField n rem = let (name, rem') = readUtf8 cp $ skipAccessFlags rem
-                                (t, rem'') = readUtf8 cp rem'
-                                (attrs, rem''') = readAttributes cp rem''
-                                (fs, rem'''') = readField (n-1) rem'''
-                            in (Field name t attrs : fs, rem'''')
+readFields cp bs = let (count, rem) = getNum16 bs
+                   in repeatF count (readField cp) rem
+
+readField cp bs = let (name, rem) = readUtf8 cp $ skipAccessFlags bs
+                      (t, rem') = readUtf8 cp rem
+                      (attrs, rem'') = readAttributes cp rem'
+                  in (Field name t attrs, rem'')
 
 readMethods :: ConstantPool -> L.ByteString -> ([Method], L.ByteString)
 readMethods cp bs = uncurry readMethod $ getNum16 bs
