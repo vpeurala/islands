@@ -116,9 +116,6 @@ skipExceptionTable bs = let (count, rem) = getNum16 bs
                         in foldr skipEntry rem [1..count]
                             where skipEntry _ xs = L8.drop 8 xs
 
-readInvocations :: L.ByteString -> ([Invocation], L.ByteString)
-readInvocations bs = undefined
-
 skipCodeAttributes :: L.ByteString -> L.ByteString
 skipCodeAttributes bs = uncurry skipCodeAttr $ getNum16 bs
     where skipCodeAttr 0 rem = rem
