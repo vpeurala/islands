@@ -62,100 +62,108 @@ data CPEntry = Classref NameIdx
              | Other2 Int Int
                deriving (Show)
 
-type Parse a = L.ByteString -> (a, L.ByteString)
+newtype Parse a = Parse(L.ByteString -> (a, L.ByteString))
 
 identity :: a -> Parse a
-identity a = (\s -> (a, s))
+identity a = Parse(\s -> (a, s))
 
 (==>) :: Parse a -> (a -> Parse b) -> Parse b
-p1 ==> p2 = (\s -> let (x, newState) = p1 s 
-                   in (p2 x) newState)
+(Parse p1) ==> p2 = Parse(\s -> let (x, newState) = p1 s 
+                                    (Parse q) = p2 x
+                                in q newState)
 
---instance Monad Parse where
---    return = identity
---    (>>=) = (==>)
+instance Monad Parse where
+    return = identity
+    (>>=) = (==>)
 
--- FIXME cleanup all fromIntgral conversions (perhaps by using Word8?)
--- FIXME clean up manual threading of rems
+-- FIXME cleanup all fromIntegral conversions (perhaps by using Word8?)
 parse :: L.ByteString -> Class
-parse bs = let (count, rem1) = getNum16 $ skipHeader bs
-               (cp, rem2) = readConstantPool (count-1) rem1
-               (fqn, rem3) = readClassname cp $ skipAccessFlags rem2
-               (superclass, rem4) = readClassname cp rem3
-               (interfaces, rem5) = readInterfaces cp rem4
-               (fields, rem6) = readFields cp rem5
-               (methods, rem7) = readMethods cp rem6
-           in Class fqn superclass interfaces fields methods
+parse = undefined
+--parse bs = fst $ parse0 bs
+
+parse0 :: Parse Class
+parse0 = do header <- skipHeader
+            count <- getNum16
+            cp <- readConstantPool (count-1)
+            flags <- skipAccessFlags
+            fqn <- readClassname cp
+            superclass <- readClassname cp
+            interfaces <- readInterfaces cp
+            fields <- readFields cp
+            methods <- readMethods cp
+            return (Class fqn superclass interfaces fields methods)
 
 -- FIXME see readUtf8
 readClassname :: ConstantPool -> Parse String
-readClassname cp bs = let (classIdx, rem) = getNum16 bs
-                          Utf8 fqn = let Classref fqnIdx = cp ! classIdx
+readClassname cp = do classIdx <- getNum16
+                      let Utf8 fqn = let Classref fqnIdx = cp ! classIdx
                                      in cp ! fqnIdx
-                      in (fqn, rem)
+                      return fqn
 
 readUtf8 :: ConstantPool -> Parse String
-readUtf8 cp bs = let (idx, rem) = getNum16 bs
-                     Utf8 s = cp ! idx
-                 in (s, rem)
+readUtf8 cp = do idx <- getNum16
+                 let Utf8 s = cp ! idx
+                 return s
 
-skipHeader :: L.ByteString -> L.ByteString
-skipHeader = L8.drop 8
-skipAccessFlags = L8.drop 2
+skipHeader :: Parse ()
+skipHeader = Parse(\s -> ((), L8.drop 8 s))
+
+skipAccessFlags :: Parse ()
+skipAccessFlags = Parse(\s -> ((), L8.drop 2 s))
 
 readAttributes :: ConstantPool -> Parse [Attribute]
-readAttributes cp bs = let (count, rem) = getNum16 bs
-                       in repeatF count readAttribute rem
-                           where readAttribute rem = let (name, rem') = readUtf8 cp rem
-                                                         (length, rem'') = getNum32 rem'
-                                                         len = fromIntegral length
-                                                     in mkAttr name len rem''
+readAttributes cp = do count <- getNum16
+                       repeatF count readAttribute
+                           where readAttribute = do name <- readUtf8 cp
+                                                    length <- getNum32
+                                                    mkAttr name (fromIntegral length)
 
---mkAttr :: String -> Int -> L.ByteString -> (Attribute, L.ByteString)
-mkAttr name len bs = case name of
-                       "Code" -> let (maxStack, rem) = getNum16 bs
-                                     (maxLocals, rem') = getNum16 rem
-                                     (codeLen, rem'') = getNum32 rem'
-                                     (code, rem''') = (L.take (fromIntegral codeLen) rem'', L.drop (fromIntegral codeLen) rem'')
-                                     rem'''' = skipExceptionTable rem'''
-                                     (_, rem''''') = skipCodeAttributes rem''''
-                                 in (Attribute name code, rem''''')
-                       _ -> (Attribute name (L.take len bs), L.drop len bs)
+--mkAttr :: String -> Int -> Parse Attribute
+mkAttr name len = case name of
+                    "Code" -> do maxStack <- getNum16
+                                 maxLocals <- getNum16
+                                 codeLen <- getNum32
+                                 code <- Parse(\s -> (L.take (fromIntegral codeLen) s, L.drop (fromIntegral codeLen) s))
+                                 exps <- skipExceptionTable
+                                 attrs <- skipCodeAttributes
+                                 return (Attribute name code)
+                    _ -> Parse(\s -> (Attribute name (L.take len s), L.drop len s))
 
-skipExceptionTable :: L.ByteString -> L.ByteString
-skipExceptionTable bs = let (count, rem) = getNum16 bs
-                        in foldr skipEntry rem [1..count]
-                            where skipEntry _ xs = L8.drop 8 xs
+skipExceptionTable :: Parse[()]
+skipExceptionTable = do count <- getNum16
+                        repeatF count skipEntry
+                            where skipEntry = Parse(\s -> ((), L8.drop 8 s))
 
 skipCodeAttributes :: Parse [()]
-skipCodeAttributes bs = let (count, rem) = getNum16 bs
-                        in repeatF count skipCodeAttr rem
-                            where skipCodeAttr bs = let (nameIdx, rem) = getNum16 bs
-                                                        (len, rem') = getNum32 rem
-                                                    in ((), L.drop (fromIntegral len) rem')
+skipCodeAttributes = do count <- getNum16
+                        repeatF count skipCodeAttr
+                            where skipCodeAttr = do nameIdx <- getNum16
+                                                    len <- getNum32
+                                                    Parse(\s -> ((), L.drop (fromIntegral len) s))
 
 -- FIXME notice similarity with 'readFields', 'readMethods', 'readAttributes' and 'readConstantPoolEntries', ...
 readInterfaces :: ConstantPool -> Parse [String]
-readInterfaces cp bs = let (count, rem) = getNum16 bs
-                       in repeatF count readInterface rem
-                           where readInterface = readClassname cp
+readInterfaces cp = do count <- getNum16
+                       repeatF count (readClassname cp)
 
 readFields :: ConstantPool -> Parse [Field]
-readFields cp bs = let (count, rem) = getNum16 bs
-                   in repeatF count (readField cp) rem
+readFields cp = do count <- getNum16
+                   repeatF count (readField cp)
 
-readField cp bs = let (name, rem) = readUtf8 cp $ skipAccessFlags bs
-                      (t, rem') = readUtf8 cp rem
-                      (attrs, rem'') = readAttributes cp rem'
-                  in (Field name t attrs, rem'')
+readField cp = do flags <- skipAccessFlags
+                  name <- readUtf8 cp
+                  t <- readUtf8 cp
+                  attrs <- readAttributes cp
+                  return (Field name t attrs)
 
 readMethods :: ConstantPool -> Parse [Method]
-readMethods cp bs = let (count, rem) = getNum16 bs
-                    in repeatF count readMethod rem
-                        where readMethod rem = let (name, rem') = readUtf8 cp $ skipAccessFlags rem
-                                                   (t, rem'') = readUtf8 cp rem'
-                                                   (attrs, rem''') = readAttributes cp rem''
-                                               in (mkMethod cp name t attrs, rem''')
+readMethods cp = do count <- getNum16
+                    repeatF count readMethod
+                        where readMethod = do flags <- skipAccessFlags
+                                              name <- readUtf8 cp
+                                              t <- readUtf8 cp
+                                              attrs <- readAttributes cp
+                                              return (mkMethod cp name t attrs)
 
 mkMethod :: ConstantPool -> String -> String -> [Attribute] -> Method
 mkMethod cp name sig attrs = Method name sig attrs $ join (invocations (code attrs))
@@ -179,55 +187,54 @@ resolveInvocation cp (c:x:y:t) | or $ map (==c) Op.invokeInstructions =
 resolveInvocation _ _ = []
 
 readConstantPool :: Int -> Parse ConstantPool
-readConstantPool n bs = let (entries, rem) = readConstantPoolEntries n bs
-                        in (Map.fromList $ [1..] `zip` entries, rem)
+readConstantPool n = do entries <- readConstantPoolEntries n 
+                        return (Map.fromList $ [1..] `zip` entries)
 
 readConstantPoolEntries :: Int -> Parse [CPEntry]
-readConstantPoolEntries n bs = repeatF n readConstantPoolEntry bs
+readConstantPoolEntries n = repeatF n readConstantPoolEntry 
 
--- FIXME cleanup this ugly implementation, how to chain (x, rem) ?
 readConstantPoolEntry :: Parse CPEntry
-readConstantPoolEntry bs = let tag = getNum8 bs
-                               e1 entry (idx, bs) = (entry idx, bs)
-                               e2 entry (idx1, bs) f = let (idx2, rem) = f bs
-                                                        in (entry idx1 idx2, rem)
-                           in case fst tag of
-                                7  -> e1 Classref (getNum16 $ snd tag)
-                                9  -> e2 Fieldref (getNum16 $ snd tag) getNum16
-                                10 -> e2 Methodref (getNum16 $ snd tag) getNum16
-                                11 -> e2 InterfaceMethodref (getNum16 $ snd tag) getNum16
-                                12 -> e2 NameAndType (getNum16 $ snd tag) getNum16
-                                8  -> e1 Stringref (getNum16 $ snd tag)
-                                3  -> e1 Other (getNum32 $ snd tag)
-                                4  -> e1 Other (getNum32 $ snd tag)
-                                5  -> e2 Other2 (getNum32 $ snd tag) getNum32
-                                6  -> e2 Other2 (getNum32 $ snd tag) getNum32
-                                1  -> e1 Utf8 (getUtf8 $ snd tag)
+readConstantPoolEntry = do tag <- getNum8
+                           mkEntry tag
+
+mkEntry :: Int -> Parse CPEntry
+mkEntry tag = case tag of
+                7  -> do idx <- getNum16; return (Classref idx)
+                9  -> do cidx <- getNum16; nidx <- getNum16; return (Fieldref cidx nidx)
+                10 -> do cidx <- getNum16; nidx <- getNum16; return (Methodref cidx nidx)
+                11 -> do cidx <- getNum16; nidx <- getNum16; return (InterfaceMethodref cidx nidx)
+                12 -> do nidx <- getNum16; didx <- getNum16; return (NameAndType nidx didx)
+                8  -> do idx <- getNum16; return (Stringref idx)
+                3  -> do idx <- getNum32; return (Other idx)
+                4  -> do idx <- getNum32; return (Other idx)
+                5  -> do idx1 <- getNum32; idx2 <- getNum32; return (Other2 idx1 idx2)
+                6  -> do idx1 <- getNum32; idx2 <- getNum32; return (Other2 idx1 idx2)
+                1  -> do idx <- getUtf8; return (Utf8 idx)
 
 getNum8 :: Parse Int
-getNum8 bs = (fromIntegral $ L.head bs, L.tail bs)
+getNum8 = Parse(\bs -> (fromIntegral $ L.head bs, L.tail bs))
 
 -- FIXME use shift operator
 getNum16 :: Parse Int
-getNum16 bs = case L.unpack bs of
-                x1:x2:rest -> ((fromIntegral x1) * 256 + fromIntegral x2, L.drop 2 bs)
+getNum16 = Parse(\bs -> case L.unpack bs of
+                          x1:x2:rest -> ((fromIntegral x1) * 256 + fromIntegral x2, L.drop 2 bs))
 
 -- FIXME use shift operator
 getNum32 :: Parse Int
-getNum32 bs = let (high, rem) = getNum16 bs
-                  (low, rem') = getNum16 rem
-              in (high * 65536 + low, rem')
+getNum32 = do high <- getNum16
+              low <- getNum16
+              return (high * 65536 + low)
 
 getUtf8 :: Parse String
-getUtf8 bs = let (length, rem) = getNum16 bs
-                 n = fromIntegral length
-             in (U8.toString $ L.take n rem, L.drop n rem)
+getUtf8 = do length <- getNum16
+             let n = fromIntegral length
+             Parse(\s -> (U8.toString $ L.take n s, L.drop n s))
 
 repeatF :: Int -> Parse a -> Parse [a]
-repeatF 0 f bs = ([], bs)
-repeatF n f bs = let (a, rem) = f bs
-                     (as, rem') = repeatF (n-1) f rem
-                 in (a : as, rem')
+repeatF 0 f = Parse(\s -> ([], s))
+repeatF n f = do a <- f
+                 as <- repeatF (n-1) f
+                 return (a : as)
 
 -- FIXME remove, just to test stuff
 main = test
