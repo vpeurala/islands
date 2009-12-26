@@ -172,16 +172,13 @@ resolveInvocation cp (c:x:y:t) | or $ map (==c) Op.invokeInstructions =
                                        Utf8 signature = cp ! sigIdx
                                    in [Invocation classname methodname signature]
 resolveInvocation _ _ = []
-                             
+
 readConstantPool :: Int -> L.ByteString -> (ConstantPool, L.ByteString)
 readConstantPool n bs = let (entries, rem) = readConstantPoolEntries n bs
                         in (Map.fromList $ [1..] `zip` entries, rem)
 
 readConstantPoolEntries :: Int -> L.ByteString -> ([CPEntry], L.ByteString)
-readConstantPoolEntries 0 bs = ([], bs)
-readConstantPoolEntries n bs = let (e, rem) = readConstantPoolEntry bs
-                                   (es, rem') = readConstantPoolEntries (n-1) rem
-                               in (e : es, rem')
+readConstantPoolEntries n bs = repeatF n readConstantPoolEntry bs
 
 -- FIXME cleanup this ugly implementation, how to chain (x, rem) ?
 readConstantPoolEntry :: L.ByteString -> (CPEntry, L.ByteString)
@@ -220,6 +217,12 @@ getUtf8 :: L.ByteString -> (String, L.ByteString)
 getUtf8 bs = let (length, rem) = getNum16 bs
                  n = fromIntegral length
              in (U8.toString $ L.take n rem, L.drop n rem)
+
+repeatF :: Int -> (L.ByteString -> (a, L.ByteString)) -> L.ByteString -> ([a], L.ByteString)
+repeatF 0 f bs = ([], bs)
+repeatF n f bs = let (a, rem) = f bs
+                     (as, rem') = repeatF (n-1) f rem
+                 in (a : as, rem')
 
 -- FIXME remove, just to test stuff
 main = test
