@@ -91,14 +91,12 @@ skipHeader = L8.drop 8
 skipAccessFlags = L8.drop 2
 
 readAttributes :: ConstantPool -> L.ByteString -> ([Attribute], L.ByteString)
-readAttributes cp bs = uncurry readAttribute $ getNum16 bs
-    where readAttribute 0 rem = ([], rem)
-          readAttribute n rem = let (name, rem') = readUtf8 cp rem
-                                    (length, rem'') = getNum32 rem'
-                                    len = fromIntegral length
-                                    (attr, rem''') = mkAttr name len rem''
-                                    (attrs, rem'''') = readAttribute (n-1) rem'''
-                                in (attr : attrs, rem'''')
+readAttributes cp bs = let (count, rem) = getNum16 bs
+                       in repeatF count readAttribute rem
+                           where readAttribute rem = let (name, rem') = readUtf8 cp rem
+                                                         (length, rem'') = getNum32 rem'
+                                                         len = fromIntegral length
+                                                     in mkAttr name len rem''
 
 --mkAttr :: String -> Int -> L.ByteString -> (Attribute, L.ByteString)
 mkAttr name len bs = case name of
