@@ -107,7 +107,7 @@ mkAttr name len bs = case name of
                                      (codeLen, rem'') = getNum32 rem'
                                      (code, rem''') = (L.take (fromIntegral codeLen) rem'', L.drop (fromIntegral codeLen) rem'')
                                      rem'''' = skipExceptionTable rem'''
-                                     rem''''' = skipCodeAttributes rem''''
+                                     (_, rem''''') = skipCodeAttributes rem''''
                                  in (Attribute name code, rem''''')
                        _ -> (Attribute name (L.take len bs), L.drop len bs)
 
@@ -116,12 +116,12 @@ skipExceptionTable bs = let (count, rem) = getNum16 bs
                         in foldr skipEntry rem [1..count]
                             where skipEntry _ xs = L8.drop 8 xs
 
-skipCodeAttributes :: L.ByteString -> L.ByteString
-skipCodeAttributes bs = uncurry skipCodeAttr $ getNum16 bs
-    where skipCodeAttr 0 rem = rem
-          skipCodeAttr n rem = let (nameIdx, rem') = getNum16 rem
-                                   (len, rem'') = getNum32 rem'
-                               in skipCodeAttr (n-1) $ L.drop (fromIntegral len) rem''
+skipCodeAttributes :: Parse [()]
+skipCodeAttributes bs = let (count, rem) = getNum16 bs
+                        in repeatF count skipCodeAttr rem
+                            where skipCodeAttr bs = let (nameIdx, rem) = getNum16 bs
+                                                        (len, rem') = getNum32 rem
+                                                    in ((), L.drop (fromIntegral len) rem')
 
 -- FIXME notice similarity with 'readFields', 'readMethods', 'readAttributes' and 'readConstantPoolEntries', ...
 readInterfaces :: ConstantPool -> Parse [String]
