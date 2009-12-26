@@ -162,9 +162,9 @@ readMethods cp = do count <- getNum16
                     replicateM count readMethod
                         where readMethod = do flags <- skipAccessFlags
                                               name <- readUtf8 cp
-                                              t <- readUtf8 cp
+                                              signature <- readUtf8 cp
                                               attrs <- readAttributes cp
-                                              return (mkMethod cp name t attrs)
+                                              return (mkMethod cp name signature attrs)
 
 mkMethod :: ConstantPool -> String -> String -> [Attribute] -> Method
 mkMethod cp name sig attrs = Method name sig attrs $ join (invocations (code attrs))
