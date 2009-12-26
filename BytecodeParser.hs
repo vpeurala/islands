@@ -7,7 +7,7 @@ import List (find)
 import Data.Map (Map, (!))
 import qualified Data.Map as Map
 import Data.Word (Word8)
-import Control.Monad (join)
+import Control.Monad (join, replicateM)
 import qualified Islands.Bytecode.Opcodes as Op
 import System.IO -- FIXME can be removed 
 import Debug.Trace -- FIXME can be removed 
@@ -115,7 +115,7 @@ skipAccessFlags = Parse(\s -> ((), L8.drop 2 s))
 
 readAttributes :: ConstantPool -> Parse [Attribute]
 readAttributes cp = do count <- getNum16
-                       repeatF count readAttribute
+                       replicateM count readAttribute
                            where readAttribute = do name <- readUtf8 cp
                                                     length <- getNum32
                                                     mkAttr name (fromIntegral length)
@@ -133,23 +133,23 @@ mkAttr name len = case name of
 
 skipExceptionTable :: Parse[()]
 skipExceptionTable = do count <- getNum16
-                        repeatF count skipEntry
+                        replicateM count skipEntry
                             where skipEntry = Parse(\s -> ((), L8.drop 8 s))
 
 skipCodeAttributes :: Parse [()]
 skipCodeAttributes = do count <- getNum16
-                        repeatF count skipCodeAttr
+                        replicateM count skipCodeAttr
                             where skipCodeAttr = do nameIdx <- getNum16
                                                     len <- getNum32
                                                     Parse(\s -> ((), L.drop (fromIntegral len) s))
 
 readInterfaces :: ConstantPool -> Parse [String]
 readInterfaces cp = do count <- getNum16
-                       repeatF count (readClassname cp)
+                       replicateM count (readClassname cp)
 
 readFields :: ConstantPool -> Parse [Field]
 readFields cp = do count <- getNum16
-                   repeatF count (readField cp)
+                   replicateM count (readField cp)
 
 readField cp = do flags <- skipAccessFlags
                   name <- readUtf8 cp
@@ -159,7 +159,7 @@ readField cp = do flags <- skipAccessFlags
 
 readMethods :: ConstantPool -> Parse [Method]
 readMethods cp = do count <- getNum16
-                    repeatF count readMethod
+                    replicateM count readMethod
                         where readMethod = do flags <- skipAccessFlags
                                               name <- readUtf8 cp
                                               t <- readUtf8 cp
@@ -192,7 +192,7 @@ readConstantPool n = do entries <- readConstantPoolEntries n
                         return (Map.fromList $ [1..] `zip` entries)
 
 readConstantPoolEntries :: Int -> Parse [CPEntry]
-readConstantPoolEntries n = repeatF n readConstantPoolEntry 
+readConstantPoolEntries n = replicateM n readConstantPoolEntry 
 
 readConstantPoolEntry :: Parse CPEntry
 readConstantPoolEntry = do tag <- getNum8
@@ -230,12 +230,6 @@ getUtf8 :: Parse String
 getUtf8 = do length <- getNum16
              let n = fromIntegral length
              Parse(\s -> (U8.toString $ L.take n s, L.drop n s))
-
-repeatF :: Int -> Parse a -> Parse [a]
-repeatF 0 f = Parse(\s -> ([], s))
-repeatF n f = do a <- f
-                 as <- repeatF (n-1) f
-                 return (a : as)
 
 -- FIXME remove, just to test stuff
 main = test
