@@ -62,6 +62,8 @@ data CPEntry = Classref NameIdx
              | Other2 Int Int
                deriving (Show)
 
+type Parse a = L.ByteString -> (a, L.ByteString)
+
 -- FIXME cleanup all fromIntgral conversions (perhaps by using Word8?)
 -- FIXME clean up manual threading of rems
 parse :: L.ByteString -> Class
@@ -75,13 +77,13 @@ parse bs = let (count, rem1) = getNum16 $ skipHeader bs
            in Class fqn superclass interfaces fields methods
 
 -- FIXME see readUtf8
-readClassname :: ConstantPool -> L.ByteString -> (String, L.ByteString)
+readClassname :: ConstantPool -> Parse String
 readClassname cp bs = let (classIdx, rem) = getNum16 bs
                           Utf8 fqn = let Classref fqnIdx = cp ! classIdx
                                      in cp ! fqnIdx
                       in (fqn, rem)
 
-readUtf8 :: ConstantPool -> L.ByteString -> (String, L.ByteString)
+readUtf8 :: ConstantPool -> Parse String
 readUtf8 cp bs = let (idx, rem) = getNum16 bs
                      Utf8 s = cp ! idx
                  in (s, rem)
@@ -90,7 +92,7 @@ skipHeader :: L.ByteString -> L.ByteString
 skipHeader = L8.drop 8
 skipAccessFlags = L8.drop 2
 
-readAttributes :: ConstantPool -> L.ByteString -> ([Attribute], L.ByteString)
+readAttributes :: ConstantPool -> Parse [Attribute]
 readAttributes cp bs = let (count, rem) = getNum16 bs
                        in repeatF count readAttribute rem
                            where readAttribute rem = let (name, rem') = readUtf8 cp rem
@@ -122,12 +124,12 @@ skipCodeAttributes bs = uncurry skipCodeAttr $ getNum16 bs
                                in skipCodeAttr (n-1) $ L.drop (fromIntegral len) rem''
 
 -- FIXME notice similarity with 'readFields', 'readMethods', 'readAttributes' and 'readConstantPoolEntries', ...
-readInterfaces :: ConstantPool -> L.ByteString -> ([String], L.ByteString)
+readInterfaces :: ConstantPool -> Parse [String]
 readInterfaces cp bs = let (count, rem) = getNum16 bs
                        in repeatF count readInterface rem
                            where readInterface = readClassname cp
 
-readFields :: ConstantPool -> L.ByteString -> ([Field], L.ByteString)
+readFields :: ConstantPool -> Parse [Field]
 readFields cp bs = let (count, rem) = getNum16 bs
                    in repeatF count (readField cp) rem
 
@@ -136,7 +138,7 @@ readField cp bs = let (name, rem) = readUtf8 cp $ skipAccessFlags bs
                       (attrs, rem'') = readAttributes cp rem'
                   in (Field name t attrs, rem'')
 
-readMethods :: ConstantPool -> L.ByteString -> ([Method], L.ByteString)
+readMethods :: ConstantPool -> Parse [Method]
 readMethods cp bs = let (count, rem) = getNum16 bs
                     in repeatF count readMethod rem
                         where readMethod rem = let (name, rem') = readUtf8 cp $ skipAccessFlags rem
@@ -165,15 +167,15 @@ resolveInvocation cp (c:x:y:t) | or $ map (==c) Op.invokeInstructions =
                                    in [Invocation classname methodname signature]
 resolveInvocation _ _ = []
 
-readConstantPool :: Int -> L.ByteString -> (ConstantPool, L.ByteString)
+readConstantPool :: Int -> Parse ConstantPool
 readConstantPool n bs = let (entries, rem) = readConstantPoolEntries n bs
                         in (Map.fromList $ [1..] `zip` entries, rem)
 
-readConstantPoolEntries :: Int -> L.ByteString -> ([CPEntry], L.ByteString)
+readConstantPoolEntries :: Int -> Parse [CPEntry]
 readConstantPoolEntries n bs = repeatF n readConstantPoolEntry bs
 
 -- FIXME cleanup this ugly implementation, how to chain (x, rem) ?
-readConstantPoolEntry :: L.ByteString -> (CPEntry, L.ByteString)
+readConstantPoolEntry :: Parse CPEntry
 readConstantPoolEntry bs = let tag = getNum8 bs
                                e1 entry (idx, bs) = (entry idx, bs)
                                e2 entry (idx1, bs) f = let (idx2, rem) = f bs
@@ -191,26 +193,26 @@ readConstantPoolEntry bs = let tag = getNum8 bs
                                 6  -> e2 Other2 (getNum32 $ snd tag) getNum32
                                 1  -> e1 Utf8 (getUtf8 $ snd tag)
 
-getNum8 :: L.ByteString -> (Int, L.ByteString)
+getNum8 :: Parse Int
 getNum8 bs = (fromIntegral $ L.head bs, L.tail bs)
 
 -- FIXME use shift operator
-getNum16 :: L.ByteString -> (Int, L.ByteString)
+getNum16 :: Parse Int
 getNum16 bs = case L.unpack bs of
                 x1:x2:rest -> ((fromIntegral x1) * 256 + fromIntegral x2, L.drop 2 bs)
 
 -- FIXME use shift operator
-getNum32 :: L.ByteString -> (Int, L.ByteString)
+getNum32 :: Parse Int
 getNum32 bs = let (high, rem) = getNum16 bs
                   (low, rem') = getNum16 rem
               in (high * 65536 + low, rem')
 
-getUtf8 :: L.ByteString -> (String, L.ByteString)
+getUtf8 :: Parse String
 getUtf8 bs = let (length, rem) = getNum16 bs
                  n = fromIntegral length
              in (U8.toString $ L.take n rem, L.drop n rem)
 
-repeatF :: Int -> (L.ByteString -> (a, L.ByteString)) -> L.ByteString -> ([a], L.ByteString)
+repeatF :: Int -> Parse a -> Parse [a]
 repeatF 0 f bs = ([], bs)
 repeatF n f bs = let (a, rem) = f bs
                      (as, rem') = repeatF (n-1) f rem
