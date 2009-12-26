@@ -64,6 +64,17 @@ data CPEntry = Classref NameIdx
 
 type Parse a = L.ByteString -> (a, L.ByteString)
 
+identity :: a -> Parse a
+identity a = (\s -> (a, s))
+
+(==>) :: Parse a -> (a -> Parse b) -> Parse b
+p1 ==> p2 = (\s -> let (x, newState) = p1 s 
+                   in (p2 x) newState)
+
+--instance Monad Parse where
+--    return = identity
+--    (>>=) = (==>)
+
 -- FIXME cleanup all fromIntgral conversions (perhaps by using Word8?)
 -- FIXME clean up manual threading of rems
 parse :: L.ByteString -> Class
