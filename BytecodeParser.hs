@@ -137,13 +137,12 @@ readField cp bs = let (name, rem) = readUtf8 cp $ skipAccessFlags bs
                   in (Field name t attrs, rem'')
 
 readMethods :: ConstantPool -> L.ByteString -> ([Method], L.ByteString)
-readMethods cp bs = uncurry readMethod $ getNum16 bs
-    where readMethod 0 rem = ([], rem)
-          readMethod n rem = let (name, rem') = readUtf8 cp $ skipAccessFlags rem
-                                 (t, rem'') = readUtf8 cp rem'
-                                 (attrs, rem''') = readAttributes cp rem''
-                                 (ms, rem'''') = readMethod (n-1) rem'''
-                             in (mkMethod cp name t attrs : ms, rem'''')
+readMethods cp bs = let (count, rem) = getNum16 bs
+                    in repeatF count readMethod rem
+                        where readMethod rem = let (name, rem') = readUtf8 cp $ skipAccessFlags rem
+                                                   (t, rem'') = readUtf8 cp rem'
+                                                   (attrs, rem''') = readAttributes cp rem''
+                                               in (mkMethod cp name t attrs, rem''')
 
 mkMethod :: ConstantPool -> String -> String -> [Attribute] -> Method
 mkMethod cp name sig attrs = Method name sig attrs $ join (invocations (code attrs))
