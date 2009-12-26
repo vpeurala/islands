@@ -153,9 +153,9 @@ readFields cp = do count <- getNum16
 
 readField cp = do flags <- skipAccessFlags
                   name <- readUtf8 cp
-                  t <- readUtf8 cp
+                  signature <- readUtf8 cp
                   attrs <- readAttributes cp
-                  return (Field name t attrs)
+                  return (Field name signature attrs)
 
 readMethods :: ConstantPool -> Parse [Method]
 readMethods cp = do count <- getNum16
