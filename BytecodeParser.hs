@@ -84,7 +84,7 @@ parse :: L.ByteString -> Class
 parse bs = unbox parse0 bs
 
 parse0 :: Parse Class
-parse0 = do header <- skipHeader
+parse0 = do header <- skipN 8
             count <- getNum16
             cp <- readConstantPool (count-1)
             flags <- skipAccessFlags
@@ -105,9 +105,6 @@ readUtf8 :: ConstantPool -> Parse String
 readUtf8 cp = do idx <- getNum16
                  let Utf8 s = cp ! idx
                  return s
-
-skipHeader :: Parse ()
-skipHeader = skipN 8
 
 skipAccessFlags :: Parse ()
 skipAccessFlags = skipN 2
