@@ -7,10 +7,10 @@ import List (find)
 import Data.Map (Map, (!))
 import qualified Data.Map as Map
 import Data.Word (Word8)
+import Bits (shift)
 import Control.Monad (join, replicateM)
 import qualified Islands.Bytecode.Opcodes as Op
 import System.IO -- FIXME can be removed 
-import Debug.Trace -- FIXME can be removed 
 
 data Class = Class {
       fqn :: String
@@ -166,7 +166,7 @@ mkMethod cp name sig attrs = Method name sig attrs $ join (invocations (code att
 
 resolveInvocation :: ConstantPool -> [Int] -> [Invocation]
 resolveInvocation cp (c:x:y:t) | or $ map (==c) Op.invokeInstructions = 
-                                   let Methodref classIdx nameAndTypeIdx = cp ! ((x*256)+y)
+                                   let Methodref classIdx nameAndTypeIdx = cp ! toNum16 x y
                                        Classref cnameIdx = cp ! classIdx
                                        Utf8 classname = cp ! cnameIdx
                                        NameAndType mnameIdx sigIdx = cp ! nameAndTypeIdx
@@ -208,16 +208,16 @@ readUtf8 cp = do idx <- getNum16
 getNum8 :: Parse Int
 getNum8 = Parse(\bs -> (fromIntegral $ L.head bs, L.tail bs))
 
--- FIXME use shift operator
 getNum16 :: Parse Int
 getNum16 = Parse(\bs -> case L.unpack bs of
-                          x1:x2:rest -> ((fromIntegral x1) * 256 + fromIntegral x2, L.drop 2 bs))
+                          x:y:rest -> (toNum16 (fromIntegral x) (fromIntegral y), L.drop 2 bs))
 
--- FIXME use shift operator
+toNum16 x y = x `shift` 8 + y
+
 getNum32 :: Parse Int
 getNum32 = do high <- getNum16
               low <- getNum16
-              return (high * 65536 + low)
+              return (high `shift` 16 + low)
 
 getUtf8 :: Parse String
 getUtf8 = do length <- getNum16
