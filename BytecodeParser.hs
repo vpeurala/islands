@@ -79,7 +79,7 @@ instance Monad Parse where
     return = identity
     (>>=) = (==>)
 
--- FIXME cleanup all fromIntegral conversions (perhaps by using Word8?)
+-- FIXME cleanup all fromIntegral conversions
 parse :: L.ByteString -> Class
 parse bs = unbox parse0 bs
 
@@ -95,7 +95,6 @@ parse0 = do header <- skipHeader
             methods <- readMethods cp
             return (Class fqn superclass interfaces fields methods)
 
--- FIXME see readUtf8
 readClassname :: ConstantPool -> Parse String
 readClassname cp = do classIdx <- getNum16
                       let Utf8 fqn = let Classref fqnIdx = cp ! classIdx
@@ -108,10 +107,10 @@ readUtf8 cp = do idx <- getNum16
                  return s
 
 skipHeader :: Parse ()
-skipHeader = Parse(\s -> ((), L8.drop 8 s))
+skipHeader = skipN 8
 
 skipAccessFlags :: Parse ()
-skipAccessFlags = Parse(\s -> ((), L8.drop 2 s))
+skipAccessFlags = skipN 2
 
 readAttributes :: ConstantPool -> Parse [Attribute]
 readAttributes cp = do count <- getNum16
@@ -125,7 +124,7 @@ mkAttr name len = case name of
                     "Code" -> do maxStack <- getNum16
                                  maxLocals <- getNum16
                                  codeLen <- getNum32
-                                 code <- Parse(\s -> (L.take (fromIntegral codeLen) s, L.drop (fromIntegral codeLen) s))
+                                 code <- getN codeLen
                                  exps <- skipExceptionTable
                                  attrs <- skipCodeAttributes
                                  return (Attribute name code)
@@ -133,15 +132,14 @@ mkAttr name len = case name of
 
 skipExceptionTable :: Parse[()]
 skipExceptionTable = do count <- getNum16
-                        replicateM count skipEntry
-                            where skipEntry = Parse(\s -> ((), L8.drop 8 s))
+                        replicateM count (skipN 8)
 
 skipCodeAttributes :: Parse [()]
 skipCodeAttributes = do count <- getNum16
                         replicateM count skipCodeAttr
                             where skipCodeAttr = do nameIdx <- getNum16
                                                     len <- getNum32
-                                                    Parse(\s -> ((), L.drop (fromIntegral len) s))
+                                                    skipN len
 
 readInterfaces :: ConstantPool -> Parse [String]
 readInterfaces cp = do count <- getNum16
@@ -230,6 +228,12 @@ getUtf8 :: Parse String
 getUtf8 = do length <- getNum16
              let n = fromIntegral length
              Parse(\s -> (U8.toString $ L.take n s, L.drop n s))
+
+getN :: Int -> Parse L.ByteString
+getN n = Parse(\s -> (L.take (fromIntegral n) s, L.drop (fromIntegral n) s))
+
+skipN :: Int -> Parse ()
+skipN n = Parse(\s -> ((), L.drop (fromIntegral n) s))
 
 -- FIXME remove, just to test stuff
 main = test
