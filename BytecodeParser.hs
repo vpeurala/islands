@@ -101,11 +101,6 @@ readClassname cp = do classIdx <- getNum16
                                      in cp ! fqnIdx
                       return fqn
 
-readUtf8 :: ConstantPool -> Parse String
-readUtf8 cp = do idx <- getNum16
-                 let Utf8 s = cp ! idx
-                 return s
-
 skipAccessFlags :: Parse ()
 skipAccessFlags = skipN 2
 
@@ -163,13 +158,11 @@ readMethods cp = do count <- getNum16
 
 mkMethod :: ConstantPool -> String -> String -> [Attribute] -> Method
 mkMethod cp name sig attrs = Method name sig attrs $ join (invocations (code attrs))
-    where code attrs = maybe L.empty attrBytes (findCodeAttr attrs)
+    where findCodeAttr = find (\a -> attrName a == "Code")
+          code attrs = maybe L.empty attrBytes (findCodeAttr attrs)
           invocations code = invocation code
               where invocation c | L.length c == 0 = []
                     invocation c = (resolveInvocation cp $ map fromIntegral (L.unpack c)) : (invocation (L.drop (fromIntegral $ Op.length (fromIntegral $ L.head c)) c))
-
-findCodeAttr :: [Attribute] -> Maybe Attribute
-findCodeAttr = find (\a -> attrName a == "Code")
 
 resolveInvocation :: ConstantPool -> [Int] -> [Invocation]
 resolveInvocation cp (c:x:y:t) | or $ map (==c) Op.invokeInstructions = 
@@ -206,6 +199,11 @@ mkEntry tag = case tag of
                 5  -> do idx1 <- getNum32; idx2 <- getNum32; return (Other2 idx1 idx2)
                 6  -> do idx1 <- getNum32; idx2 <- getNum32; return (Other2 idx1 idx2)
                 1  -> do idx <- getUtf8; return (Utf8 idx)
+
+readUtf8 :: ConstantPool -> Parse String
+readUtf8 cp = do idx <- getNum16
+                 let Utf8 s = cp ! idx
+                 return s
 
 getNum8 :: Parse Int
 getNum8 = Parse(\bs -> (fromIntegral $ L.head bs, L.tail bs))
