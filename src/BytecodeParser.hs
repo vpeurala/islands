@@ -10,7 +10,6 @@ import Data.Word (Word8)
 import Bits (shift)
 import Control.Monad (join, replicateM)
 import qualified Islands.Bytecode.Opcodes as Op
-import System.IO -- FIXME can be removed 
 
 data Class = Class {
       fqn :: String
@@ -229,11 +228,3 @@ getN n = Parse(\s -> (L.take (fromIntegral n) s, L.drop (fromIntegral n) s))
 
 skipN :: Int -> Parse ()
 skipN n = Parse(\s -> ((), L.drop (fromIntegral n) s))
-
--- FIXME remove, just to test stuff
-main = test
-test = do
-  inh <- openBinaryFile "Test.class" ReadMode
-  clazz <- L.hGetContents inh >>= return . parse
-  putStrLn $ show clazz
-  hClose inh
