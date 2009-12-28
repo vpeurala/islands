@@ -14,13 +14,16 @@ tests = TestList [ TestLabel "Parses Java class" parseJavaClassTest
                  , TestLabel "Parses Java interface" parseJavaInterfaceTest ]
 
 
--- FIXME assert
 parseJavaClassTest = TestCase (do clazz <- parseFile "test/JavaClass.class" 
-                                  assertEqual "fqn" (fqn clazz) "test/JavaClass")
+                                  assertEqual "fqn" (fqn clazz) "test/JavaClass"
+                                  assertEqual "super" (superclass clazz) "java/lang/Object"
+                                  assertEqual "intfs" (interfaces clazz) ["java/lang/Comparable"]
+                              )
 
--- FIXME actual test
 parseJavaInterfaceTest = TestCase (do clazz <- parseFile "test/JavaInterface.class" 
-                                      (putStrLn . show) clazz)
+                                      assertEqual "fqn" (fqn clazz) "test/JavaInterface"
+                                      assertEqual "super" (superclass clazz) "java/lang/Object"
+                                      assertEqual "intfs" (interfaces clazz) [])
 
 parseFile name = do contents <- L.readFile name
                     return (parse contents)
