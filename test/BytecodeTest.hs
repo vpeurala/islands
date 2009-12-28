@@ -15,12 +15,12 @@ tests = TestList [ TestLabel "Parses Java class" parseJavaClassTest
 
 
 -- FIXME assert
-parseJavaClassTest = TestCase (do inh <- openBinaryFile "test/Test.class" ReadMode
-                                  clazz <- L.hGetContents inh >>= return . parse
-                                  putStrLn $ show clazz
-                                  hClose inh)
+parseJavaClassTest = TestCase (do clazz <- parseFile "test/JavaClass.class" 
+                                  assertEqual "fqn" (fqn clazz) "test/JavaClass")
 
 -- FIXME actual test
-parseJavaInterfaceTest = TestCase (assertEqual "test" (1,2) (1,2))
+parseJavaInterfaceTest = TestCase (do clazz <- parseFile "test/JavaInterface.class" 
+                                      (putStrLn . show) clazz)
 
-
+parseFile name = do contents <- L.readFile name
+                    return (parse contents)
