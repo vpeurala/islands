@@ -17,33 +17,33 @@ data Class = Class {
     , interfaces :: [String]
     , fields :: [Field]
     , methods :: [Method]
-    } deriving (Show)
+    } deriving (Show, Eq)
 
 data Field = Field {
       fieldName :: String
     , fieldType :: String
     , fieldAttrs :: [Attribute]
-    } deriving (Show)
+    } deriving (Show, Eq)
 
 data Method = Method {
       methodName :: String
     , methodType :: String
     , methodAttrs :: [Attribute]
     , invocations :: [Invocation]
-    } deriving (Show)
+    } deriving (Show, Eq)
 
 data Invocation = Invocation {
       targetClass :: String
     , targetMethodName :: String
     , targetMethodSignature :: String
-    } deriving (Show)
+    } deriving (Show, Eq)
 
 type ConstantPool = Map Int CPEntry
 
 data Attribute = Attribute {
       attrName :: String
-    , attrBytes :: L.ByteString
-    } deriving (Show)
+    , attrBytes :: L.ByteString  -- FIXME remove
+    } deriving (Show, Eq)
 
 type NameIdx = Int
 type ClassIdx = Int
