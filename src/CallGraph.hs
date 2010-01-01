@@ -19,9 +19,9 @@ data FQMethod = FQMethod {
 
 mkGraph :: [Class] -> FQMethod -> CallGraph
 mkGraph classes root = let methods = methodMap classes
-                           xxx r = CallGraph r (map xxx $ next r)
+                           rec r = CallGraph r (map rec $ next r)
                            next method = map fromInvocation $ maybe [] B.invocations (Map.lookup method methods)
-                       in xxx root
+                       in rec root
 
 methodMap :: [Class] -> Map FQMethod Method
 methodMap classes = let allMethods = join $ map methods classes
