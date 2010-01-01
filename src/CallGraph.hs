@@ -18,12 +18,16 @@ data FQMethod = FQMethod {
     } deriving (Show, Eq, Ord)
 
 mkGraph :: [Class] -> (Class, Method) -> CallGraph
-mkGraph = undefined
+mkGraph classes root = let methods = methodMap classes                                     
+                       in xxx root
+                           where xxx r = CallGraph r (map xxx (methods ! r))
+                                 next method = B.invocations (methods ! method)
 
 methodMap :: [Class] -> Map FQMethod Method
 methodMap classes = let allMethods = join $ map methods classes
                     in Map.fromList $ zip (qualify allMethods) (map snd allMethods)
                         where methods c = map (\m -> (c, m)) (B.methods c)
                               qualify = map (uncurry sig)
-                              sig c m = FQMethod (B.fqn c) (B.methodName m) (B.methodType m)
+
+sig clazz method = FQMethod (B.fqn clazz) (B.methodName method) (B.methodType method)
 
