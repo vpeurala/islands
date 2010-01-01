@@ -12,7 +12,7 @@ main = do doesConfigFileExist <- doesFileExist ".islands"
           configFile <- readFile ".islands"
           putStrLn $ show $ parse configFile
 
---parse :: String -> Map String [String]
+parse :: String -> Config
 parse input = mkConfig $ Map.fromList $ map (mkConfigLine . splitLine) (lines input)
     where parseValues = splitRegex (mkRegex "\\s*,\\s*")
           mkConfigLine (k, v) = (k, parseValues v)
