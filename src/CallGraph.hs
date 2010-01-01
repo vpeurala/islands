@@ -7,7 +7,7 @@ import qualified Data.Map as Map
 import Control.Monad (join)
 
 data CallGraph = CallGraph {
-      method :: (Class, Method)
+      method :: FQMethod
     , callsites :: [CallGraph]
     } deriving (Show)
 
@@ -17,11 +17,11 @@ data FQMethod = FQMethod {
     , methodSignature :: String
     } deriving (Show, Eq, Ord)
 
-mkGraph :: [Class] -> (Class, Method) -> CallGraph
-mkGraph classes root = let methods = methodMap classes                                     
+mkGraph :: [Class] -> FQMethod -> CallGraph
+mkGraph classes root = let methods = methodMap classes
+                           xxx r = CallGraph r (map xxx $ next r)
+                           next method = map fromInvocation $ B.invocations (methods ! method)
                        in xxx root
-                           where xxx r = CallGraph r (map xxx (methods ! r))
-                                 next method = B.invocations (methods ! method)
 
 methodMap :: [Class] -> Map FQMethod Method
 methodMap classes = let allMethods = join $ map methods classes
@@ -31,3 +31,5 @@ methodMap classes = let allMethods = join $ map methods classes
 
 sig clazz method = FQMethod (B.fqn clazz) (B.methodName method) (B.methodType method)
 
+-- FIXME unify Invocation & FQMethod
+fromInvocation i = FQMethod (B.targetClass i) (B.targetMethodName i) (B.targetMethodSignature i)
