@@ -6,6 +6,7 @@ import System.Directory
 import Text.Regex
 import qualified Data.ByteString.Lazy as L
 import qualified Islands.Bytecode as B
+import qualified Islands.Dependencies as D
 import Control.Monad (filterM, join, forM)
 import System.FilePath ((</>))
 
@@ -16,8 +17,8 @@ data Config = Config {
 
 main = do doesConfigFileExist <- doesFileExist ".islands"
           file <- readFile ".islands"
-          let classes = map classesInDir (classpathRoots $ parse file)
-          (head classes) >>= putStrLn . show
+          let css = map classesInDir (classpathRoots $ parse file)
+          (head css) >>= (\cs -> putStrLn $ show $ D.mkGraph cs $ D.FQMethod "Foo" "<init>" "()V")
               where classesInDir :: FilePath -> IO [B.Class]
                     classesInDir d = do files <- classFiles d 
                                         sequence $ map parseClass files

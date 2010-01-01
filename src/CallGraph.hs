@@ -2,7 +2,7 @@ module Islands.Dependencies where
 
 import Islands.Bytecode (Class, Method)
 import qualified Islands.Bytecode as B
-import Data.Map (Map, (!))
+import Data.Map (Map, (!), lookup)
 import qualified Data.Map as Map
 import Control.Monad (join)
 
@@ -20,7 +20,7 @@ data FQMethod = FQMethod {
 mkGraph :: [Class] -> FQMethod -> CallGraph
 mkGraph classes root = let methods = methodMap classes
                            xxx r = CallGraph r (map xxx $ next r)
-                           next method = map fromInvocation $ B.invocations (methods ! method)
+                           next method = map fromInvocation $ maybe [] B.invocations (Map.lookup method methods)
                        in xxx root
 
 methodMap :: [Class] -> Map FQMethod Method
