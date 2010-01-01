@@ -16,7 +16,6 @@ parse :: String -> Config
 parse input = mkConfig $ Map.fromList $ map (mkConfigLine . splitLine) (lines input)
     where parseValues = splitRegex (mkRegex "\\s*,\\s*")
           mkConfigLine (k, v) = (k, parseValues v)
-          mkConfig :: Map String [String] -> Config 
           mkConfig m = Config (m ! "classpath_roots") (m ! "execution_roots")
 
 splitLine :: String -> (String, String)
