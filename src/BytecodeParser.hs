@@ -8,8 +8,9 @@ import Data.Map (Map, (!))
 import qualified Data.Map as Map
 import Data.Word (Word8)
 import Bits (shift)
-import Control.Monad (join, replicateM)
+import Control.Monad (join, replicateM, liftM)
 import qualified Islands.Bytecode.Opcodes as Op
+import Debug.Trace
 
 data Class = Class {
       fqn :: String
@@ -179,7 +180,24 @@ readConstantPool n = do entries <- readConstantPoolEntries n
                         return (Map.fromList $ [1..] `zip` entries)
 
 readConstantPoolEntries :: Int -> Parse [CPEntry]
-readConstantPoolEntries n = replicateM n readConstantPoolEntry 
+readConstantPoolEntries count = repeatx count
+
+repeatx :: Int -> Parse [CPEntry]
+repeatx 0 = return []
+repeatx n = let e :: Parse CPEntry
+                e = readConstantPoolEntry 
+            in concat `liftM` (sequence $ (sequence [e]) : (restOfEntries e) : [])
+
+restOfEntries :: Parse CPEntry -> Parse [CPEntry]
+restOfEntries e = join $ rec `liftM` e
+
+rec :: CPEntry -> Parse [CPEntry]
+rec pureE = repeatx $ entriesLeft pureE 10
+
+entriesLeft :: CPEntry -> Int -> Int
+entriesLeft pureE n = case pureE of
+                        (Other2 _ _) -> n-2
+                        _ -> n-1
 
 readConstantPoolEntry :: Parse CPEntry
 readConstantPoolEntry = do tag <- getNum8
