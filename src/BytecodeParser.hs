@@ -177,27 +177,29 @@ resolveInvocation _ _ = []
 
 readConstantPool :: Int -> Parse ConstantPool
 readConstantPool n = do entries <- readConstantPoolEntries n 
-                        return (Map.fromList $ [1..] `zip` entries)
+                        let mkIndexes :: [CPEntry] -> (Int, [(Int, CPEntry)])
+                            mkIndexes es = foldr (\e (prev, xs) -> (prev + entrySize e, (prev, e) : xs)) (1, []) es
+                        return (Map.fromList $ snd $ mkIndexes (reverse entries))
 
 readConstantPoolEntries :: Int -> Parse [CPEntry]
 readConstantPoolEntries count = repeatx count
     where repeatx :: Int -> Parse [CPEntry]
           repeatx n | n <= 0 = return []
-          repeatx n = let e = readConstantPoolEntry 
-                      in concat `liftM` (sequence $ (sequence [e]) : (restOfEntries n e) : [])
-                          where restOfEntries :: Int -> Parse CPEntry -> Parse [CPEntry]
-                                restOfEntries n' e = join $ (rec n') `liftM` e
-                                rec :: Int -> CPEntry -> Parse [CPEntry]
-                                rec n' pureE = repeatx $ entriesLeft pureE ((trace $ "> " ++ show n') n')
+          repeatx n = do e <- readConstantPoolEntry 
+                         concat `liftM` (sequence $ (sequence [return e]) : (restOfEntries n (return e)) : [])
+                             where restOfEntries :: Int -> Parse CPEntry -> Parse [CPEntry]
+                                   restOfEntries n' e = join $ (rec n') `liftM` e
+                                   rec :: Int -> CPEntry -> Parse [CPEntry]
+                                   rec n' pureE = repeatx $ (n' - entrySize pureE)
 
-entriesLeft :: CPEntry -> Int -> Int
-entriesLeft pureE n = case pureE of
-                        (Other2 _ _) -> n-2
-                        _ -> n-1
+entrySize :: CPEntry -> Int
+entrySize e = case e of
+                (Other2 _ _) -> 2
+                _ -> 1
 
 readConstantPoolEntry :: Parse CPEntry
 readConstantPoolEntry = do tag <- getNum8
-                           mkEntry ((trace $ show tag) tag)
+                           mkEntry tag
 
 mkEntry :: Int -> Parse CPEntry
 mkEntry tag = case tag of

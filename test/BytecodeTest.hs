@@ -14,11 +14,10 @@ import Islands.Bytecode
 tests = TestList [ TestLabel "Parses Java class" parseJavaClassTest
                  , TestLabel "Parses Java interface" parseJavaInterfaceTest ]
 
-
 parseJavaClassTest = 
     TestCase (do clazz <- parseFile "test/JavaClass.class" 
                  assertEqual "fqn" (fqn clazz) "test/JavaClass"
-                 assertEqual "super" (superclass clazz) "java/lang/Object"
+                 assertEqual "super" (superclass clazz) "test/Super"
                  assertEqual "intfs" (interfaces clazz) ["java/lang/Comparable"]
                  assertEqual "invocations" (getInvocations clazz "foo")
                      [ Invocation "test/JavaClass$Inner" "<init>" "(Ltest/JavaClass;)V"

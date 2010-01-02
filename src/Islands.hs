@@ -9,6 +9,7 @@ import qualified Islands.Bytecode as B
 import qualified Islands.Dependencies as D
 import Control.Monad (filterM, join, forM)
 import System.FilePath ((</>))
+import Debug.Trace
 
 data Config = Config {
       classpathRoots :: [FilePath]
@@ -18,9 +19,9 @@ data Config = Config {
 main = do doesConfigFileExist <- doesFileExist ".islands"
           file <- readFile ".islands"
           let css = map classesInDir (classpathRoots $ parse file)
-          (head css) >>= (\cs -> putStrLn $ show $ D.mkGraph cs $ D.FQMethod "Foo" "<init>" "()V")
+          (head css) >>= (\cs -> putStrLn $ show $ D.mkGraph cs $ D.FQMethod "org.laughingpanda.jretrofit.Retrofit" "partial" "(Ljava/lang/Object;Ljava/lang/Class;)Ljava/lang/Object;")
               where classesInDir :: FilePath -> IO [B.Class]
-                    classesInDir d = do files <- classFiles d 
+                    classesInDir d = do files <- classFiles d
                                         sequence $ map parseClass files
                     parseClass f = do bytes <- L.readFile f
                                       return (B.parse bytes)
