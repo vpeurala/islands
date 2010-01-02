@@ -181,18 +181,14 @@ readConstantPool n = do entries <- readConstantPoolEntries n
 
 readConstantPoolEntries :: Int -> Parse [CPEntry]
 readConstantPoolEntries count = repeatx count
-
-repeatx :: Int -> Parse [CPEntry]
-repeatx 0 = return []
-repeatx n = let e :: Parse CPEntry
-                e = readConstantPoolEntry 
-            in concat `liftM` (sequence $ (sequence [e]) : (restOfEntries e) : [])
-
-restOfEntries :: Parse CPEntry -> Parse [CPEntry]
-restOfEntries e = join $ rec `liftM` e
-
-rec :: CPEntry -> Parse [CPEntry]
-rec pureE = repeatx $ entriesLeft pureE 10
+    where repeatx :: Int -> Parse [CPEntry]
+          repeatx n | n <= 0 = return []
+          repeatx n = let e = readConstantPoolEntry 
+                      in concat `liftM` (sequence $ (sequence [e]) : (restOfEntries n e) : [])
+                          where restOfEntries :: Int -> Parse CPEntry -> Parse [CPEntry]
+                                restOfEntries n' e = join $ (rec n') `liftM` e
+                                rec :: Int -> CPEntry -> Parse [CPEntry]
+                                rec n' pureE = repeatx $ entriesLeft pureE ((trace $ "> " ++ show n') n')
 
 entriesLeft :: CPEntry -> Int -> Int
 entriesLeft pureE n = case pureE of
@@ -201,7 +197,7 @@ entriesLeft pureE n = case pureE of
 
 readConstantPoolEntry :: Parse CPEntry
 readConstantPoolEntry = do tag <- getNum8
-                           mkEntry tag
+                           mkEntry ((trace $ show tag) tag)
 
 mkEntry :: Int -> Parse CPEntry
 mkEntry tag = case tag of
